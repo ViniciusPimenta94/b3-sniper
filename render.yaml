@@ -1,4 +1,5 @@
 services:
+
   - type: web
     name: b3-sniper-bot
     runtime: python
@@ -6,9 +7,10 @@ services:
 
     buildCommand: pip install -r requirements.txt
 
-    startCommand: python setup_config.py && python bot_mercado.py
+    startCommand: python bot_mercado.py
 
     envVars:
+
       - key: PYTHON_VERSION
         value: "3.12.0"
 
