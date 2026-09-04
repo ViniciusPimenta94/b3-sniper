@@ -1,0 +1,14 @@
+services:
+  - type: worker
+    name: b3-sniper-bot
+    runtime: python
+    plan: free
+    buildCommand: python setup_config.py && pip install -r requirements.txt
+    startCommand: python bot_mercado.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false

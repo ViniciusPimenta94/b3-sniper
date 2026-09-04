@@ -1,0 +1,35 @@
+{
+  "comment": "Ordens de compra na corretora. ticker: CMIG4 ou CMIG4.SA. preco_ordem: valor limite da ordem.",
+  "ordens": [
+    {
+      "ticker": "CMIG4",
+      "nome_amigavel": "Cemig",
+      "preco_ordem": 10.0
+    },
+    {
+      "ticker": "ITUB4",
+      "nome_amigavel": "Itaú Unibanco",
+      "preco_ordem": 37.5
+    },
+    {
+      "ticker": "SBSP3",
+      "nome_amigavel": "Sabesp",
+      "preco_ordem": 23.0
+    },
+    {
+      "ticker": "XPLG11",
+      "nome_amigavel": "XP Logística",
+      "preco_ordem": 88.0
+    },
+    {
+      "ticker": "VISC11",
+      "nome_amigavel": "Vinci Shopping",
+      "preco_ordem": 100.0
+    },
+    {
+      "ticker": "VIVT3",
+      "nome_amigavel": "Telefônica Brasil",
+      "preco_ordem": 29.0
+    }
+  ]
+}

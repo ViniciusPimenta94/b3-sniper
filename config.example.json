@@ -1,0 +1,135 @@
+{
+  "telegram": {
+    "bot_token": "",
+    "chat_id": "",
+    "comment": "Use TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID no ambiente (Render) ou preencha aqui localmente."
+  },
+  "schedule": {
+    "interval_minutes": 60,
+    "trading_hours": {
+      "enabled": true,
+      "timezone": "America/Sao_Paulo",
+      "weekdays_only": true,
+      "start": "10:00",
+      "end": "17:55"
+    },
+    "eod_summary_time": "21:00"
+  },
+  "estrategias": {
+    "max_52_semanas": {
+      "descricao": "Desconto sobre a Máxima de 52 Semanas",
+      "parametros": {
+        "desconto_pct": 0.05
+      }
+    },
+    "bazin": {
+      "descricao": "Décio Bazin focado em Proventos (Preço = Dividendos 12M / Yield Alvo)",
+      "parametros": {
+        "yield_alvo": 0.08
+      }
+    },
+    "graham": {
+      "descricao": "Fórmula de Benjamin Graham (√(22,5 × LPA × VPA))",
+      "parametros": {}
+    },
+    "fii_vp": {
+      "descricao": "Fundo Imobiliário: Alvo P/VP = 1.0 (Comprar no Valor Patrimonial)",
+      "parametros": {}
+    }
+  },
+  "assets": [
+    {
+      "ticker": "IVVB11.SA",
+      "nome_amigavel": "S&P 500 ETF",
+      "estrategia": "max_52_semanas",
+      "preco_teto": 413.03
+    },
+    {
+      "ticker": "WRLD11.SA",
+      "nome_amigavel": "Global Stocks ETF",
+      "estrategia": "max_52_semanas",
+      "preco_teto": 141.07
+    },
+    {
+      "ticker": "BBSE3.SA",
+      "nome_amigavel": "BB Seguridade",
+      "estrategia": "bazin",
+      "parametros": {
+        "yield_alvo": 0.08,
+        "proventos_fallback": 4.51
+      },
+      "preco_teto": 56.86
+    },
+    {
+      "ticker": "ITUB4.SA",
+      "nome_amigavel": "Itaú Unibanco",
+      "estrategia": "graham",
+      "parametros": {
+        "lpa_fallback": 4.17,
+        "vpa_fallback": 19.02
+      },
+      "preco_teto": 42.0
+    },
+    {
+      "ticker": "TAEE11.SA",
+      "nome_amigavel": "Taesa",
+      "estrategia": "bazin",
+      "parametros": {
+        "yield_alvo": 0.09,
+        "proventos_fallback": 3.5
+      },
+      "preco_teto": 36.39
+    },
+    {
+      "ticker": "WEGE3.SA",
+      "nome_amigavel": "WEG",
+      "estrategia": "max_52_semanas",
+      "preco_teto": 51.8
+    },
+    {
+      "ticker": "VISC11.SA",
+      "nome_amigavel": "Vinci Shopping",
+      "estrategia": "fii_vp",
+      "parametros": {
+        "vpa_fallback": 112.0
+      },
+      "preco_teto": 112.0
+    },
+    {
+      "ticker": "XPLG11.SA",
+      "nome_amigavel": "XP Logística",
+      "estrategia": "fii_vp",
+      "parametros": {
+        "vpa_fallback": 105.56
+      },
+      "preco_teto": 105.56
+    },
+    {
+      "ticker": "PVBI11.SA",
+      "nome_amigavel": "VBI Prime Offices",
+      "estrategia": "fii_vp",
+      "parametros": {
+        "vpa_fallback": 101.5
+      },
+      "preco_teto": 101.5
+    },
+    {
+      "ticker": "BTHF11.SA",
+      "nome_amigavel": "BTG Pactual Hedge Fund",
+      "estrategia": "fii_vp",
+      "parametros": {
+        "vpa_fallback": 9.4
+      },
+      "preco_teto": 9.4
+    },
+    {
+      "ticker": "CPTS11.SA",
+      "nome_amigavel": "Capitania Securities II",
+      "estrategia": "fii_vp",
+      "parametros": {
+        "vpa_fallback": 8.85
+      },
+      "preco_teto": 8.85
+    }
+  ]
+}
