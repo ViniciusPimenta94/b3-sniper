@@ -108,7 +108,23 @@ def load_config() -> dict:
         )
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+
+    # Garante que a seção telegram exista
+    if "telegram" not in config:
+        config["telegram"] = {}
+
+    # Variáveis de ambiente têm prioridade no Render
+    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+    if telegram_token:
+        config["telegram"]["bot_token"] = telegram_token
+
+    if telegram_chat_id:
+        config["telegram"]["chat_id"] = telegram_chat_id
+
+    return config
 
 
 def get_bot_token(cfg: dict) -> str:
