@@ -1,8 +1,19 @@
 """
 B3 Sniper
-Bot Telegram: alertas quando preço de mercado <= preço teto (oportunidade).
+Bot Telegram para monitoramento de oportunidades e ordens na B3.
 
-Usa:
+Funcionalidades:
+- Monitoramento de preço teto dos ativos
+- Monitoramento de ordens de compra
+- Alertas via Telegram
+- Comando /status
+- Comando /ordens
+- Comando /help
+- Resumo diário das ordens
+- Servidor Flask para Render/UptimeRobot
+- Heartbeat nos logs
+
+Bibliotecas:
 - yfinance
 - pyTelegramBotAPI
 - schedule
@@ -21,6 +32,19 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+
+# ===========================================================================
+# TIMEZONE
+# ===========================================================================
+
+# Define Brasília como timezone do processo.
+# Isso ajuda a biblioteca "schedule" a interpretar horários corretamente.
+os.environ["TZ"] = "America/Sao_Paulo"
+
+if hasattr(time, "tzset"):
+    time.tzset()
+
+
 import schedule
 import telebot
 import yfinance as yf
@@ -28,13 +52,26 @@ from flask import Flask
 
 
 # ===========================================================================
-# CONFIGURAÇÃO GERAL
+# CAMINHOS
 # ===========================================================================
 
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
-ORDENS_PATH = Path(__file__).resolve().parent / "ordens.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+CONFIG_PATH = BASE_DIR / "config.json"
+CONFIG_EXAMPLE_PATH = BASE_DIR / "config.example.json"
+ORDENS_PATH = BASE_DIR / "ordens.json"
+
+
+# ===========================================================================
+# TIMEZONE
+# ===========================================================================
 
 TZ_BRASILIA = ZoneInfo("America/Sao_Paulo")
+
+
+# ===========================================================================
+# LOGGING
+# ===========================================================================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,16 +92,14 @@ app = Flask(__name__)
 @app.before_request
 def log_request():
     log.info(
-        "🌐 Ping recebido - %s %s - %s",
+        "🌐 Ping HTTP recebido - %s",
         datetime.now(TZ_BRASILIA).strftime("%d/%m/%Y %H:%M:%S"),
-        os.environ.get("RENDER_EXTERNAL_URL", ""),
-        "Requisição HTTP",
     )
 
 
 @app.route("/")
 def home():
-    return "🤖 B3 Sniper Online!"
+    return "🤖 B3 Sniper Online!", 200
 
 
 @app.route("/health")
@@ -78,8 +113,7 @@ def health():
 
 def run_web_server():
     """
-    Inicia servidor HTTP necessário para o Render Web Service.
-    Executa em thread separada para não bloquear o Telegram.
+    Inicia o servidor HTTP necessário para o Render Web Service.
     """
 
     port = int(os.environ.get("PORT", 10000))
@@ -97,24 +131,49 @@ def run_web_server():
 
 
 # ===========================================================================
-# CONFIG.JSON
+# CONFIGURAÇÃO
 # ===========================================================================
 
-
 def load_config() -> dict:
-    if not CONFIG_PATH.is_file():
-        raise FileNotFoundError(
-            f"Arquivo de configuração não encontrado: {CONFIG_PATH}"
+    """
+    Carrega a configuração do bot.
+
+    Prioridade:
+    1. config.json
+    2. config.example.json
+
+    As variáveis de ambiente do Render sobrescrevem
+    as configurações do Telegram.
+    """
+
+    config_file = None
+
+    if CONFIG_PATH.is_file():
+        config_file = CONFIG_PATH
+
+    elif CONFIG_EXAMPLE_PATH.is_file():
+        config_file = CONFIG_EXAMPLE_PATH
+
+        log.warning(
+            "⚠️ config.json não encontrado. "
+            "Utilizando config.example.json."
         )
 
-    with open(CONFIG_PATH, encoding="utf-8") as f:
+    else:
+        raise FileNotFoundError(
+            "Nenhum arquivo de configuração encontrado. "
+            f"Esperado: {CONFIG_PATH} "
+            f"ou {CONFIG_EXAMPLE_PATH}"
+        )
+
+    with open(config_file, encoding="utf-8") as f:
         config = json.load(f)
 
     # Garante que a seção telegram exista
     if "telegram" not in config:
         config["telegram"] = {}
 
-    # Variáveis de ambiente têm prioridade no Render
+    # Variáveis de ambiente têm prioridade
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
@@ -124,29 +183,45 @@ def load_config() -> dict:
     if telegram_chat_id:
         config["telegram"]["chat_id"] = telegram_chat_id
 
+    log.info(
+        "📄 Configuração carregada de: %s",
+        config_file.name,
+    )
+
     return config
 
 
 def get_bot_token(cfg: dict) -> str:
     """
     Prioridade:
+
     1. TELEGRAM_BOT_TOKEN do ambiente
     2. telegram.bot_token do config.json
     """
 
-    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    token = (
+        os.environ.get(
+            "TELEGRAM_BOT_TOKEN"
+        )
+        or ""
+    ).strip()
 
     if token:
         return token
 
-    token = (cfg.get("telegram") or {}).get("bot_token") or ""
+    token = (
+        (cfg.get("telegram") or {})
+        .get("bot_token")
+        or ""
+    )
+
     token = str(token).strip()
 
     if not token:
         raise ValueError(
             "Token do bot ausente. "
             "Defina TELEGRAM_BOT_TOKEN "
-            "ou telegram.bot_token em config.json"
+            "ou telegram.bot_token no config."
         )
 
     return token
@@ -155,7 +230,6 @@ def get_bot_token(cfg: dict) -> str:
 # ===========================================================================
 # MODELOS
 # ===========================================================================
-
 
 @dataclass
 class AssetConfig:
@@ -176,13 +250,15 @@ class OrderConfig:
 
     @property
     def label(self) -> str:
-        return self.nome_amigavel or display_ticker(self.ticker)
+        return (
+            self.nome_amigavel
+            or display_ticker(self.ticker)
+        )
 
 
 # ===========================================================================
 # ATIVOS E ORDENS
 # ===========================================================================
-
 
 def display_ticker(ticker: str) -> str:
     """
@@ -198,17 +274,36 @@ def display_ticker(ticker: str) -> str:
 
 
 def load_ordens() -> list[OrderConfig]:
+    """
+    Carrega ordens.json.
+    """
 
     if not ORDENS_PATH.is_file():
+
         log.info(
-            "Arquivo ordens.json não encontrado; "
+            "ℹ️ Arquivo ordens.json não encontrado; "
             "monitoramento de ordens desativado."
         )
 
         return []
 
-    with open(ORDENS_PATH, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+
+        with open(
+            ORDENS_PATH,
+            encoding="utf-8",
+        ) as f:
+
+            data = json.load(f)
+
+    except Exception as e:
+
+        log.exception(
+            "Erro ao carregar ordens.json: %s",
+            e,
+        )
+
+        return []
 
     raw = data.get("ordens") or []
 
@@ -219,15 +314,23 @@ def load_ordens() -> list[OrderConfig]:
         if not isinstance(item, dict):
             continue
 
-        ticker = str(item.get("ticker", "")).strip()
+        ticker = str(
+            item.get("ticker", "")
+        ).strip()
 
         if not ticker:
             continue
 
         try:
-            preco_ordem = float(item.get("preco_ordem"))
 
-        except (TypeError, ValueError):
+            preco_ordem = float(
+                item.get("preco_ordem")
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
 
             log.warning(
                 "Ignorando ordem sem preco_ordem válido: %s",
@@ -238,7 +341,11 @@ def load_ordens() -> list[OrderConfig]:
 
         nome = item.get("nome_amigavel")
 
-        nome = str(nome).strip() if nome else None
+        nome = (
+            str(nome).strip()
+            if nome
+            else None
+        )
 
         out.append(
             OrderConfig(
@@ -251,7 +358,12 @@ def load_ordens() -> list[OrderConfig]:
     return out
 
 
-def parse_assets(cfg: dict) -> list[AssetConfig]:
+def parse_assets(
+    cfg: dict,
+) -> list[AssetConfig]:
+    """
+    Carrega os ativos configurados.
+    """
 
     raw = cfg.get("assets") or []
 
@@ -262,15 +374,23 @@ def parse_assets(cfg: dict) -> list[AssetConfig]:
         if not isinstance(item, dict):
             continue
 
-        ticker = str(item.get("ticker", "")).strip()
+        ticker = str(
+            item.get("ticker", "")
+        ).strip()
 
         if not ticker:
             continue
 
         try:
-            preco_teto = float(item.get("preco_teto"))
 
-        except (TypeError, ValueError):
+            preco_teto = float(
+                item.get("preco_teto")
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
 
             log.warning(
                 "Ignorando ativo sem preco_teto válido: %s",
@@ -281,7 +401,11 @@ def parse_assets(cfg: dict) -> list[AssetConfig]:
 
         nome = item.get("nome_amigavel")
 
-        nome = str(nome).strip() if nome else None
+        nome = (
+            str(nome).strip()
+            if nome
+            else None
+        )
 
         out.append(
             AssetConfig(
@@ -298,11 +422,16 @@ def parse_assets(cfg: dict) -> list[AssetConfig]:
 # YAHOO FINANCE
 # ===========================================================================
 
+def _price_from_ticker(
+    ticker: yf.Ticker,
+) -> float | None:
+    """
+    Obtém o último preço conhecido.
+    """
 
-def _price_from_ticker(ticker: yf.Ticker) -> float | None:
-    """
-    Obtém último preço conhecido.
-    """
+    # -----------------------------------------------------------------------
+    # FAST INFO
+    # -----------------------------------------------------------------------
 
     try:
 
@@ -316,22 +445,46 @@ def _price_from_ticker(ticker: yf.Ticker) -> float | None:
                 "previous_close",
             ):
 
-                value = (
-                    getattr(fi, key, None)
-                    if not isinstance(fi, dict)
-                    else fi.get(key)
-                )
+                try:
 
-                if value is not None and float(value) > 0:
-                    return float(value)
+                    value = (
+                        getattr(
+                            fi,
+                            key,
+                            None,
+                        )
+                        if not isinstance(
+                            fi,
+                            dict,
+                        )
+                        else fi.get(key)
+                    )
+
+                    if (
+                        value is not None
+                        and float(value) > 0
+                    ):
+
+                        return float(value)
+
+                except Exception:
+                    continue
 
     except Exception as e:
 
         log.debug(
             "fast_info falhou para %s: %s",
-            ticker.ticker,
+            getattr(
+                ticker,
+                "ticker",
+                "desconhecido",
+            ),
             e,
         )
+
+    # -----------------------------------------------------------------------
+    # HISTORY
+    # -----------------------------------------------------------------------
 
     try:
 
@@ -346,13 +499,24 @@ def _price_from_ticker(ticker: yf.Ticker) -> float | None:
             and "Close" in hist.columns
         ):
 
-            return float(hist["Close"].iloc[-1])
+            value = hist["Close"].iloc[-1]
+
+            if value is not None:
+
+                value = float(value)
+
+                if value > 0:
+                    return value
 
     except Exception as e:
 
         log.debug(
             "history falhou para %s: %s",
-            ticker.ticker,
+            getattr(
+                ticker,
+                "ticker",
+                "desconhecido",
+            ),
             e,
         )
 
@@ -362,12 +526,16 @@ def _price_from_ticker(ticker: yf.Ticker) -> float | None:
 def resolve_yahoo_symbol(
     user_ticker: str,
 ) -> tuple[str, float | None]:
-
     """
-    Valida no Yahoo Finance.
+    Valida o ticker no Yahoo Finance.
 
-    Se o símbolo puro falhar,
-    tenta automaticamente com .SA.
+    Se o ticker puro falhar, tenta automaticamente
+    adicionar .SA.
+
+    Exemplos:
+
+    CMIG4 -> CMIG4 -> CMIG4.SA
+    XPLG11 -> XPLG11 -> XPLG11.SA
     """
 
     base = user_ticker.strip().upper()
@@ -378,7 +546,9 @@ def resolve_yahoo_symbol(
     candidates = [base]
 
     if not base.endswith(".SA"):
-        candidates.append(f"{base}.SA")
+        candidates.append(
+            f"{base}.SA"
+        )
 
     last_symbol = candidates[-1]
 
@@ -390,7 +560,9 @@ def resolve_yahoo_symbol(
 
             ticker = yf.Ticker(symbol)
 
-            price = _price_from_ticker(ticker)
+            price = _price_from_ticker(
+                ticker
+            )
 
             if price is not None:
                 return symbol, price
@@ -408,13 +580,20 @@ def resolve_yahoo_symbol(
     return last_symbol, None
 
 
-def get_current_price(symbol: str) -> float | None:
+def get_current_price(
+    symbol: str,
+) -> float | None:
+    """
+    Obtém o preço atual ou último preço disponível.
+    """
 
     try:
 
         ticker = yf.Ticker(symbol)
 
-        return _price_from_ticker(ticker)
+        return _price_from_ticker(
+            ticker
+        )
 
     except Exception as e:
 
@@ -427,14 +606,18 @@ def get_current_price(symbol: str) -> float | None:
         return None
 
 
-def get_daily_close(symbol: str) -> float | None:
+def get_daily_close(
+    symbol: str,
+) -> float | None:
     """
-    Fechamento do último pregão disponível.
+    Obtém o fechamento do último pregão disponível.
     """
 
     try:
 
-        hist = yf.Ticker(symbol).history(
+        hist = yf.Ticker(
+            symbol
+        ).history(
             period="5d",
             interval="1d",
         )
@@ -445,7 +628,12 @@ def get_daily_close(symbol: str) -> float | None:
             and "Close" in hist.columns
         ):
 
-            return float(hist["Close"].iloc[-1])
+            value = float(
+                hist["Close"].iloc[-1]
+            )
+
+            if value > 0:
+                return value
 
     except Exception as e:
 
@@ -462,14 +650,15 @@ def get_daily_close(symbol: str) -> float | None:
 # CÁLCULOS
 # ===========================================================================
 
-
 def calc_order_diff_pct(
     preco_ordem: float,
     preco_referencia: float,
 ) -> float:
-
     """
-    Diferença percentual:
+    Calcula a diferença percentual entre
+    nossa ordem e o preço de referência.
+
+    Fórmula:
 
     (ordem / referência - 1) * 100
     """
@@ -478,42 +667,27 @@ def calc_order_diff_pct(
         return 0.0
 
     return (
-        preco_ordem / preco_referencia - 1.0
+        preco_ordem
+        / preco_referencia
+        - 1.0
     ) * 100.0
 
 
-def format_pct(value: float) -> str:
+def format_pct(
+    value: float,
+) -> str:
 
-    result = f"{value:+.1f}".replace(".", ",")
-
-    if value >= 0 and not result.startswith("+"):
-        result = "+" + result
+    result = (
+        f"{value:+.1f}"
+        .replace(".", ",")
+    )
 
     return result + "%"
 
 
-# ===========================================================================
-# TELEGRAM / MARKDOWN
-# ===========================================================================
-
-
-_MD_V2_SPECIAL = frozenset(
-    r"_*[]()~`>#+-=|{}.!"
-)
-
-
-def md_escape(text: str) -> str:
-
-    return "".join(
-        "\\" + char
-        if char in _MD_V2_SPECIAL
-        else char
-
-        for char in str(text)
-    )
-
-
-def format_money(value: float) -> str:
+def format_money(
+    value: float,
+) -> str:
 
     return (
         f"R$ {value:,.2f}"
@@ -524,23 +698,58 @@ def format_money(value: float) -> str:
 
 
 # ===========================================================================
+# TELEGRAM / MARKDOWN V2
+# ===========================================================================
+
+_MD_V2_SPECIAL = frozenset(
+    r"_*[]()~`>#+-=|{}.!"
+)
+
+
+def md_escape(
+    text: str,
+) -> str:
+
+    return "".join(
+        "\\" + char
+        if char in _MD_V2_SPECIAL
+        else char
+        for char in str(text)
+    )
+
+
+# ===========================================================================
 # JANELA DE PREGÃO
 # ===========================================================================
 
+def get_schedule_config(
+    cfg: dict,
+) -> dict:
 
-def is_trading_window(cfg: dict) -> bool:
+    return (
+        cfg.get("schedule")
+        or {}
+    )
 
-    schedule_config = (
-        (cfg.get("schedule") or {})
+
+def get_trading_hours_config(
+    cfg: dict,
+) -> dict:
+
+    return (
+        get_schedule_config(cfg)
         .get("trading_hours")
         or {}
     )
 
-    if not schedule_config.get(
-        "enabled",
-        True,
-    ):
-        return True
+
+def get_schedule_tz(
+    cfg: dict,
+) -> ZoneInfo:
+
+    schedule_config = (
+        get_trading_hours_config(cfg)
+    )
 
     timezone_name = (
         schedule_config.get("timezone")
@@ -548,41 +757,118 @@ def is_trading_window(cfg: dict) -> bool:
     )
 
     try:
-        timezone = ZoneInfo(timezone_name)
+        return ZoneInfo(
+            timezone_name
+        )
 
     except Exception:
-        timezone = TZ_BRASILIA
 
-    now = datetime.now(timezone)
+        log.warning(
+            "Timezone inválido: %s. "
+            "Usando America/Sao_Paulo.",
+            timezone_name,
+        )
+
+        return TZ_BRASILIA
+
+
+def is_weekday(
+    cfg: dict,
+) -> bool:
+
+    trading_config = (
+        get_trading_hours_config(cfg)
+    )
+
+    if not trading_config.get(
+        "weekdays_only",
+        True,
+    ):
+        return True
+
+    now = datetime.now(
+        get_schedule_tz(cfg)
+    )
+
+    return now.weekday() < 5
+
+
+def is_trading_window(
+    cfg: dict,
+) -> bool:
+    """
+    Verifica se estamos dentro da janela
+    configurada para monitoramento.
+    """
+
+    trading_config = (
+        get_trading_hours_config(cfg)
+    )
+
+    if not trading_config.get(
+        "enabled",
+        True,
+    ):
+        return True
+
+    timezone = get_schedule_tz(cfg)
+
+    now = datetime.now(
+        timezone
+    )
+
+    # -----------------------------------------------------------------------
+    # FIM DE SEMANA
+    # -----------------------------------------------------------------------
 
     if (
-        schedule_config.get(
+        trading_config.get(
             "weekdays_only",
             True,
         )
         and now.weekday() >= 5
     ):
+
         return False
 
+    # -----------------------------------------------------------------------
+    # HORÁRIOS
+    # -----------------------------------------------------------------------
+
     start_s = (
-        schedule_config.get("start")
+        trading_config.get("start")
         or "10:00"
     )
 
     end_s = (
-        schedule_config.get("end")
+        trading_config.get("end")
         or "17:55"
     )
 
-    start_hour, start_minute = map(
-        int,
-        start_s.split(":")[:2],
-    )
+    try:
 
-    end_hour, end_minute = map(
-        int,
-        end_s.split(":")[:2],
-    )
+        start_hour, start_minute = map(
+            int,
+            start_s.split(":")[:2],
+        )
+
+        end_hour, end_minute = map(
+            int,
+            end_s.split(":")[:2],
+        )
+
+    except Exception:
+
+        log.warning(
+            "Horário inválido na configuração. "
+            "Usando janela padrão."
+        )
+
+        start_hour = 10
+        start_minute = 0
+
+        end_hour = 17
+        end_minute = 55
 
     minutes_now = (
         now.hour * 60
@@ -606,59 +892,17 @@ def is_trading_window(cfg: dict) -> bool:
     )
 
 
-def get_schedule_tz(
-    cfg: dict,
-) -> ZoneInfo:
-
-    schedule_config = (
-        (cfg.get("schedule") or {})
-        .get("trading_hours")
-        or {}
-    )
-
-    timezone_name = (
-        schedule_config.get("timezone")
-        or "America/Sao_Paulo"
-    )
-
-    try:
-        return ZoneInfo(timezone_name)
-
-    except Exception:
-        return TZ_BRASILIA
-
-
-def is_weekday(cfg: dict) -> bool:
-
-    schedule_config = (
-        (cfg.get("schedule") or {})
-        .get("trading_hours")
-        or {}
-    )
-
-    if not schedule_config.get(
-        "weekdays_only",
-        True,
-    ):
-        return True
-
-    return (
-        datetime.now(
-            get_schedule_tz(cfg)
-        ).weekday()
-        < 5
-    )
-
-
 # ===========================================================================
 # MENSAGENS TELEGRAM
 # ===========================================================================
-
 
 def build_status_message(
     cfg: dict,
     assets: list[AssetConfig],
 ) -> str:
+    """
+    Monta mensagem do comando /status.
+    """
 
     lines = [
         "*📊 Status dos ativos*",
@@ -672,21 +916,35 @@ def build_status_message(
 
     for asset in assets:
 
-        symbol, _ = resolve_yahoo_symbol(
-            asset.ticker
+        symbol, price_try = (
+            resolve_yahoo_symbol(
+                asset.ticker
+            )
         )
 
-        price = get_current_price(symbol)
+        price = (
+            price_try
+            if price_try is not None
+            else get_current_price(symbol)
+        )
 
-        label = md_escape(asset.label)
+        label = md_escape(
+            asset.label
+        )
 
-        symbol_escaped = md_escape(symbol)
+        symbol_display = md_escape(
+            display_ticker(symbol)
+        )
+
+        # -------------------------------------------------------------------
+        # PREÇO INDISPONÍVEL
+        # -------------------------------------------------------------------
 
         if price is None:
 
             lines.append(
                 f"*{label}* "
-                f"\\(`{symbol_escaped}`\\)"
+                f"\\({symbol_display}\\)"
             )
 
             lines.append(
@@ -699,6 +957,10 @@ def build_status_message(
 
         teto = asset.preco_teto
 
+        # -------------------------------------------------------------------
+        # SITUAÇÃO
+        # -------------------------------------------------------------------
+
         if price > teto:
 
             emoji = "📈"
@@ -709,25 +971,32 @@ def build_status_message(
 
         elif price == teto:
 
-            emoji = "📉"
+            emoji = "🎯"
 
             situacao = (
-                "Igual ao preço teto "
-                "(oportunidade)"
+                "No preço teto"
             )
 
         else:
 
-            emoji = "📉"
+            emoji = "🚨"
 
             situacao = (
-                "Abaixo do preço teto "
-                "(oportunidade)"
+                "Abaixo do preço teto"
             )
+
+        # -------------------------------------------------------------------
+        # DIFERENÇA
+        # -------------------------------------------------------------------
+
+        diff_pct = (
+            (price / teto - 1)
+            * 100
+        ) if teto > 0 else 0
 
         lines.append(
             f"{emoji} *{label}* "
-            f"\\(`{symbol_escaped}`\\)"
+            f"\\({symbol_display}\\)"
         )
 
         lines.append(
@@ -741,12 +1010,19 @@ def build_status_message(
         )
 
         lines.append(
+            f"• Diferença: "
+            f"*{md_escape(format_pct(diff_pct))}*"
+        )
+
+        lines.append(
             f"• _{md_escape(situacao)}_"
         )
 
         lines.append("")
 
-    return "\n".join(lines).rstrip()
+    return "\n".join(
+        lines
+    ).rstrip()
 
 
 def build_ordens_comparison_message(
@@ -754,6 +1030,10 @@ def build_ordens_comparison_message(
     *,
     use_close: bool = False,
 ) -> str:
+    """
+    Monta comparação entre o preço atual/fechamento
+    e as ordens configuradas.
+    """
 
     price_label = (
         "Fechamento"
@@ -764,7 +1044,7 @@ def build_ordens_comparison_message(
     title = (
         "*📊 Resumo do dia — comparação com nossas ordens*"
         if use_close
-        else "*📊 Comparação com nossas ordens*"
+        else "*🎯 Comparação com nossas ordens*"
     )
 
     lines = [
@@ -780,8 +1060,10 @@ def build_ordens_comparison_message(
 
     for order in orders:
 
-        symbol, _ = resolve_yahoo_symbol(
-            order.ticker
+        symbol, _ = (
+            resolve_yahoo_symbol(
+                order.ticker
+            )
         )
 
         price = (
@@ -790,14 +1072,23 @@ def build_ordens_comparison_message(
             else get_current_price(symbol)
         )
 
+        label = md_escape(
+            order.label
+        )
+
         symbol_display = md_escape(
             display_ticker(symbol)
         )
 
+        # -------------------------------------------------------------------
+        # PREÇO INDISPONÍVEL
+        # -------------------------------------------------------------------
+
         if price is None:
 
             lines.append(
-                f"*{symbol_display}*"
+                f"*{label}* "
+                f"\\({symbol_display}\\)"
             )
 
             lines.append(
@@ -814,13 +1105,23 @@ def build_ordens_comparison_message(
 
             continue
 
+        # -------------------------------------------------------------------
+        # DIFERENÇA
+        # -------------------------------------------------------------------
+
         diff = calc_order_diff_pct(
             order.preco_ordem,
             price,
         )
 
+        if diff >= 0:
+            emoji = "🟢"
+        else:
+            emoji = "🔴"
+
         lines.append(
-            f"*{symbol_display}*"
+            f"*{label}* "
+            f"\\({symbol_display}\\)"
         )
 
         lines.append(
@@ -835,12 +1136,15 @@ def build_ordens_comparison_message(
 
         lines.append(
             f"• Diferença: "
+            f"{emoji} "
             f"*{md_escape(format_pct(diff))}*"
         )
 
         lines.append("")
 
-    return "\n".join(lines).rstrip()
+    return "\n".join(
+        lines
+    ).rstrip()
 
 
 def build_order_alert_message(
@@ -849,6 +1153,14 @@ def build_order_alert_message(
     price: float,
     preco_ordem: float,
 ) -> str:
+    """
+    Mensagem quando o preço atual
+    atinge o preço da ordem.
+    """
+
+    label = md_escape(
+        order.label
+    )
 
     symbol_display = md_escape(
         display_ticker(symbol)
@@ -857,14 +1169,17 @@ def build_order_alert_message(
     return (
         f"*🎯 Ordem atingida*\n\n"
 
-        f"*{symbol_display}* atingiu o preço "
-        f"da sua ordem de compra\\.\n"
+        f"*{label}* "
+        f"\\({symbol_display}\\)\n\n"
 
-        f"Preço atual "
-        f"*{md_escape(format_money(price))}* "
+        f"Preço atual: "
+        f"*{md_escape(format_money(price))}*\n"
 
-        f"≤ sua ordem "
-        f"*{md_escape(format_money(preco_ordem))}*\\.\n\n"
+        f"Sua ordem: "
+        f"*{md_escape(format_money(preco_ordem))}*\n\n"
+
+        f"🚨 O preço está igual ou abaixo "
+        f"do valor da sua ordem\\.\n\n"
 
         f"_Verifique na corretora se a ordem "
         f"foi executada\\._"
@@ -877,26 +1192,33 @@ def build_alert_message(
     price: float,
     preco_teto: float,
 ) -> str:
+    """
+    Mensagem quando um ativo
+    atinge o preço teto.
+    """
 
     label = md_escape(
         asset.label
     )
 
-    symbol_escaped = md_escape(
-        symbol
+    symbol_display = md_escape(
+        display_ticker(symbol)
     )
 
     return (
         f"*🚨 Alerta de oportunidade*\n\n"
 
-        f"*📉* *{label}* "
-        f"\\(`{symbol_escaped}`\\)\n"
+        f"*📉 {label}* "
+        f"\\({symbol_display}\\)\n\n"
 
-        f"Preço atual "
-        f"*{md_escape(format_money(price))}* "
+        f"Preço atual: "
+        f"*{md_escape(format_money(price))}*\n"
 
-        f"≤ preço teto "
-        f"*{md_escape(format_money(preco_teto))}*\\.\n\n"
+        f"Preço teto: "
+        f"*{md_escape(format_money(preco_teto))}*\n\n"
+
+        f"🎯 O ativo está no preço teto "
+        f"ou abaixo dele\\.\n\n"
 
         f"_Considere sua própria análise "
         f"antes de operar\\._"
@@ -906,7 +1228,6 @@ def build_alert_message(
 # ===========================================================================
 # CONTROLE DE ALERTAS
 # ===========================================================================
-
 
 _alert_episode_keys: set[str] = set()
 
@@ -939,19 +1260,25 @@ def _order_alert_episode_key(
 # MONITORAMENTO DE ATIVOS
 # ===========================================================================
 
-
 def run_price_check(
     bot: telebot.TeleBot,
     chat_id: str,
     cfg: dict,
     assets: list[AssetConfig],
 ) -> None:
+    """
+    Verifica se os ativos atingiram
+    seus respectivos preços teto.
+    """
+
+    if not assets:
+        return
 
     if not is_trading_window(cfg):
 
         log.info(
-            "Fora da janela de pregão configurada; "
-            "pulando verificação agendada."
+            "⏸️ Fora da janela de pregão; "
+            "pulando verificação de ativos."
         )
 
         return
@@ -959,6 +1286,10 @@ def run_price_check(
     for asset in assets:
 
         try:
+
+            # ---------------------------------------------------------------
+            # PREÇO
+            # ---------------------------------------------------------------
 
             symbol, price_try = (
                 resolve_yahoo_symbol(
@@ -975,8 +1306,8 @@ def run_price_check(
             if price is None:
 
                 log.warning(
-                    "Não foi possível obter preço "
-                    "para %s (resolvido: %s)",
+                    "Não foi possível obter preço para %s "
+                    "(resolvido: %s)",
                     asset.ticker,
                     symbol,
                 )
@@ -990,9 +1321,19 @@ def run_price_check(
                 teto,
             )
 
+            # ---------------------------------------------------------------
+            # OPORTUNIDADE
+            # ---------------------------------------------------------------
+
             if price <= teto:
 
                 if key in _alert_episode_keys:
+
+                    log.info(
+                        "ℹ️ Alerta já enviado anteriormente: %s",
+                        symbol,
+                    )
+
                     continue
 
                 message = build_alert_message(
@@ -1010,10 +1351,12 @@ def run_price_check(
                         parse_mode="MarkdownV2",
                     )
 
-                    _alert_episode_keys.add(key)
+                    _alert_episode_keys.add(
+                        key
+                    )
 
                     log.info(
-                        "🚨 Alerta enviado: %s @ %s",
+                        "🚨 Alerta enviado: %s @ %.2f",
                         symbol,
                         price,
                     )
@@ -1025,7 +1368,18 @@ def run_price_check(
                         e,
                     )
 
+            # ---------------------------------------------------------------
+            # PREÇO VOLTOU A SUBIR
+            # ---------------------------------------------------------------
+
             else:
+
+                if key in _alert_episode_keys:
+
+                    log.info(
+                        "🔄 %s voltou acima do preço teto.",
+                        symbol,
+                    )
 
                 _alert_episode_keys.discard(
                     key
@@ -1044,13 +1398,16 @@ def run_price_check(
 # MONITORAMENTO DE ORDENS
 # ===========================================================================
 
-
 def run_order_check(
     bot: telebot.TeleBot,
     chat_id: str,
     cfg: dict,
     orders: list[OrderConfig],
 ) -> None:
+    """
+    Verifica se o preço atingiu
+    as ordens configuradas.
+    """
 
     if not orders:
         return
@@ -1058,7 +1415,7 @@ def run_order_check(
     if not is_trading_window(cfg):
 
         log.info(
-            "Fora da janela de pregão; "
+            "⏸️ Fora da janela de pregão; "
             "pulando verificação de ordens."
         )
 
@@ -1067,6 +1424,10 @@ def run_order_check(
     for order in orders:
 
         try:
+
+            # ---------------------------------------------------------------
+            # PREÇO
+            # ---------------------------------------------------------------
 
             symbol, price_try = (
                 resolve_yahoo_symbol(
@@ -1083,8 +1444,8 @@ def run_order_check(
             if price is None:
 
                 log.warning(
-                    "Não foi possível obter preço "
-                    "para ordem %s (resolvido: %s)",
+                    "Não foi possível obter preço para ordem %s "
+                    "(resolvido: %s)",
                     order.ticker,
                     symbol,
                 )
@@ -1098,9 +1459,19 @@ def run_order_check(
                 limite,
             )
 
+            # ---------------------------------------------------------------
+            # ORDEM ATINGIDA
+            # ---------------------------------------------------------------
+
             if price <= limite:
 
                 if key in _order_alert_episode_keys:
+
+                    log.info(
+                        "ℹ️ Alerta de ordem já enviado: %s",
+                        symbol,
+                    )
+
                     continue
 
                 message = build_order_alert_message(
@@ -1123,7 +1494,7 @@ def run_order_check(
                     )
 
                     log.info(
-                        "🎯 Alerta de ordem enviado: %s @ %s",
+                        "🎯 Alerta de ordem enviado: %s @ %.2f",
                         symbol,
                         price,
                     )
@@ -1135,7 +1506,18 @@ def run_order_check(
                         e,
                     )
 
+            # ---------------------------------------------------------------
+            # PREÇO VOLTOU A SUBIR
+            # ---------------------------------------------------------------
+
             else:
+
+                if key in _order_alert_episode_keys:
+
+                    log.info(
+                        "🔄 %s voltou acima da ordem.",
+                        symbol,
+                    )
 
                 _order_alert_episode_keys.discard(
                     key
@@ -1154,20 +1536,34 @@ def run_order_check(
 # RESUMO DE FIM DE DIA
 # ===========================================================================
 
-
 def run_eod_summary(
     bot: telebot.TeleBot,
     chat_id: str,
     cfg: dict,
     orders: list[OrderConfig],
 ) -> None:
+    """
+    Envia um resumo diário comparando
+    o fechamento com as ordens.
+    """
 
     global _eod_summary_sent_date
 
     if not orders:
+
+        log.info(
+            "ℹ️ Sem ordens para resumo diário."
+        )
+
         return
 
     if not is_weekday(cfg):
+
+        log.info(
+            "ℹ️ Hoje não é dia útil; "
+            "resumo diário não será enviado."
+        )
+
         return
 
     timezone = get_schedule_tz(cfg)
@@ -1178,8 +1574,18 @@ def run_eod_summary(
         "%Y-%m-%d"
     )
 
+    # Evita envio duplicado no mesmo dia
     if _eod_summary_sent_date == today:
+
+        log.info(
+            "ℹ️ Resumo diário já enviado hoje."
+        )
+
         return
+
+    log.info(
+        "📊 Gerando resumo diário..."
+    )
 
     message = build_ordens_comparison_message(
         orders,
@@ -1213,8 +1619,11 @@ def run_eod_summary(
 # HEARTBEAT
 # ===========================================================================
 
-
 def heartbeat():
+    """
+    Gera logs periódicos para confirmar
+    que o serviço continua ativo.
+    """
 
     while True:
 
@@ -1244,7 +1653,6 @@ def heartbeat():
 # MAIN
 # ===========================================================================
 
-
 def main() -> None:
 
     log.info(
@@ -1252,7 +1660,7 @@ def main() -> None:
     )
 
     # -----------------------------------------------------------------------
-    # Configuração
+    # CONFIGURAÇÃO
     # -----------------------------------------------------------------------
 
     cfg = load_config()
@@ -1264,7 +1672,7 @@ def main() -> None:
     orders = load_ordens()
 
     # -----------------------------------------------------------------------
-    # Chat ID
+    # CHAT ID
     # -----------------------------------------------------------------------
 
     chat_id = (
@@ -1291,12 +1699,11 @@ def main() -> None:
 
         raise ValueError(
             "Defina TELEGRAM_CHAT_ID no ambiente "
-            "ou telegram.chat_id em config.json "
-            "(ID do chat para enviar alertas agendados)."
+            "ou telegram.chat_id no arquivo de configuração."
         )
 
     # -----------------------------------------------------------------------
-    # Telegram
+    # TELEGRAM
     # -----------------------------------------------------------------------
 
     bot = telebot.TeleBot(
@@ -1305,20 +1712,35 @@ def main() -> None:
     )
 
     # -----------------------------------------------------------------------
-    # Intervalo
+    # INTERVALO
     # -----------------------------------------------------------------------
 
     schedule_config = (
-        cfg.get("schedule")
-        or {}
+        get_schedule_config(cfg)
     )
 
-    interval = int(
-        schedule_config.get(
-            "interval_minutes",
-            60,
+    try:
+
+        interval = int(
+            schedule_config.get(
+                "interval_minutes",
+                60,
+            )
         )
-    )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        interval = 60
+
+    if interval < 1:
+        interval = 1
+
+    # -----------------------------------------------------------------------
+    # JOB PRINCIPAL
+    # -----------------------------------------------------------------------
 
     def job():
 
@@ -1353,7 +1775,10 @@ def main() -> None:
                 e,
             )
 
-    # Agenda monitoramento
+    # -----------------------------------------------------------------------
+    # AGENDA MONITORAMENTO
+    # -----------------------------------------------------------------------
+
     schedule.every(
         interval
     ).minutes.do(
@@ -1361,26 +1786,41 @@ def main() -> None:
     )
 
     # -----------------------------------------------------------------------
-    # Resumo diário
+    # RESUMO DIÁRIO
     # -----------------------------------------------------------------------
 
     eod_time = (
         schedule_config.get(
             "eod_summary_time"
         )
-        or "18:00"
+        or "21:00"
     )
 
-    schedule.every().day.at(
-        eod_time
-    ).do(
-        lambda: run_eod_summary(
-            bot,
-            chat_id,
-            cfg,
-            orders,
+    try:
+
+        schedule.every().day.at(
+            eod_time
+        ).do(
+            lambda: run_eod_summary(
+                bot,
+                chat_id,
+                cfg,
+                orders,
+            )
         )
-    )
+
+        log.info(
+            "⏰ Resumo diário agendado para %s",
+            eod_time,
+        )
+
+    except Exception as e:
+
+        log.exception(
+            "Erro ao agendar resumo diário (%s): %s",
+            eod_time,
+            e,
+        )
 
     # -----------------------------------------------------------------------
     # COMANDOS TELEGRAM
@@ -1396,11 +1836,11 @@ def main() -> None:
             text = (
                 "*🤖 B3 Sniper*\n\n"
 
-                "*Comandos disponíveis:*\n"
+                "*Comandos disponíveis:*\n\n"
 
-                "• /status — preços atuais de todos os ativos\n"
-                "• /ordens — comparação com suas ordens na corretora\n"
-                "• /help — esta mensagem\n\n"
+                "📊 /status — preços atuais dos ativos\n"
+                "🎯 /ordens — comparação com suas ordens\n"
+                "❓ /help — esta mensagem\n\n"
 
                 "_Fonte: Yahoo Finance "
                 "\\(pode haver atraso conforme o ativo\\)\\._"
@@ -1421,7 +1861,8 @@ def main() -> None:
 
             bot.reply_to(
                 message,
-                "Erro ao formatar ajuda. Tente /status.",
+                "Erro ao formatar ajuda. "
+                "Tente /status.",
             )
 
     # -----------------------------------------------------------------------
@@ -1440,8 +1881,7 @@ def main() -> None:
                 bot.reply_to(
                     message,
                     (
-                        "Nenhuma ordem em ordens.json. "
-                        "Edite o arquivo e reinicie o bot."
+                        "Nenhuma ordem encontrada em ordens.json."
                     ),
                 )
 
@@ -1472,8 +1912,9 @@ def main() -> None:
                 bot.reply_to(
                     message,
                     (
-                        "Não foi possível montar a comparação agora. "
-                        "Tente de novo em instantes."
+                        "Não foi possível montar "
+                        "a comparação agora. "
+                        "Tente novamente em instantes."
                     ),
                 )
 
@@ -1512,8 +1953,9 @@ def main() -> None:
                 bot.reply_to(
                     message,
                     (
-                        "Não foi possível montar o status agora. "
-                        "Tente de novo em instantes."
+                        "Não foi possível montar "
+                        "o status agora. "
+                        "Tente novamente em instantes."
                     ),
                 )
 
@@ -1525,6 +1967,10 @@ def main() -> None:
     # -----------------------------------------------------------------------
 
     def scheduler_loop():
+
+        log.info(
+            "⏰ Scheduler iniciado."
+        )
 
         while True:
 
@@ -1539,7 +1985,7 @@ def main() -> None:
                     e,
                 )
 
-            time.sleep(15)
+            time.sleep(10)
 
     threading.Thread(
         target=scheduler_loop,
@@ -1551,11 +1997,18 @@ def main() -> None:
     # PRIMEIRA VERIFICAÇÃO
     # -----------------------------------------------------------------------
 
+    def initial_check():
+
+        time.sleep(5)
+
+        log.info(
+            "🚀 Executando primeira verificação..."
+        )
+
+        job()
+
     threading.Thread(
-        target=lambda: (
-            time.sleep(5),
-            job(),
-        ),
+        target=initial_check,
         daemon=True,
         name="initial-check",
     ).start()
@@ -1590,12 +2043,14 @@ def main() -> None:
         "Chat alertas: %s. "
         "Ativos: %s. "
         "Ordens: %s. "
-        "Resumo EOD: %s",
+        "Resumo EOD: %s. "
+        "Timezone: %s",
         interval,
         chat_id,
         len(assets),
         len(orders),
         eod_time,
+        time.tzname,
     )
 
     # -----------------------------------------------------------------------
@@ -1626,7 +2081,6 @@ def main() -> None:
 # ===========================================================================
 # START
 # ===========================================================================
-
 
 if __name__ == "__main__":
     main()
