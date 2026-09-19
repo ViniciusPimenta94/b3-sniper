@@ -1,3 +1,4 @@
 yfinance>=0.2.40
 pyTelegramBotAPI>=4.14.0
 schedule>=1.2.0
+flask>=3.0.0

@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: b3-sniper
+    name: b3-sniper-bot
     runtime: python
     plan: free
-    buildCommand: python setup_config.py && pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: python bot_mercado.py
     healthCheckPath: /health
     envVars:
