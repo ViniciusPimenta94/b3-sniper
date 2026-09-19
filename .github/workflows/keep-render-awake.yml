@@ -1,0 +1,29 @@
+# Mantém o B3-Sniper acordado só no pregão + resumo EOD (horário de Brasília, UTC-3).
+# Fora disso o Render dorme e as horas gratuitas não são consumidas.
+#
+# Secret necessário: RENDER_HEALTH_URL  (ex.: https://b3-sniper.onrender.com/health)
+# Não pingue o B3-Tracker: deixe-o dormir; horas só quando você abrir o site.
+
+name: Keep Render awake (pregao)
+
+on:
+  schedule:
+    # 10:00–20:59 BRT (13:00–23:59 UTC), seg–sex, a cada 10 min
+    - cron: "*/10 13-23 * * 1-5"
+    # 21:00 e 21:10 BRT (00:00 e 00:10 UTC ter–sáb) para o resumo EOD
+    - cron: "0,10 0 * * 2-6"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health
+        env:
+          RENDER_HEALTH_URL: ${{ secrets.RENDER_HEALTH_URL }}
+        run: |
+          if [ -z "$RENDER_HEALTH_URL" ]; then
+            echo "Configure o secret RENDER_HEALTH_URL no repositório."
+            exit 1
+          fi
+          curl -fsS --retry 3 --retry-delay 20 --max-time 90 "$RENDER_HEALTH_URL"

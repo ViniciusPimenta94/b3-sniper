@@ -83,7 +83,7 @@ log = logging.getLogger(__name__)
 
 
 # ===========================================================================
-# SERVIDOR WEB - RENDER / UPTIMEROBOT
+# SERVIDOR WEB - RENDER (sem ping 24/7; horas só com tráfego inbound)
 # ===========================================================================
 
 app = Flask(__name__)
