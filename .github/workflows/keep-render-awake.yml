@@ -8,10 +8,13 @@ name: Keep Render awake (pregao)
 
 on:
   schedule:
-    # 10:00–20:59 BRT (13:00–23:59 UTC), seg–sex, a cada 10 min
-    - cron: "*/10 13-23 * * 1-5"
-    # 21:00 e 21:10 BRT (00:00 e 00:10 UTC ter–sáb) para o resumo EOD
-    - cron: "0,10 0 * * 2-6"
+    # 10:05–20:55 BRT (13:05–23:55 UTC), seg–sex, a cada 10 min.
+    # Deslocado dos minutos :00 para reduzir atrasos do agendador.
+    - cron: "5,15,25,35,45,55 13-22 * * 1-5"
+    # Em 20h BRT, reforça os pings às 20:45, 20:50 e 20:55.
+    - cron: "5,15,25,35,45,50,55 23 * * 1-5"
+    # 21:10 BRT (00:10 UTC, ter–sáb) mantém o serviço acordado após o resumo.
+    - cron: "10 0 * * 2-6"
   workflow_dispatch:
 
 jobs:
