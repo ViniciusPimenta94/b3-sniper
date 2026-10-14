@@ -1403,6 +1403,30 @@ def _send_missing_fundamentals_alert(
         log.exception("Falha ao avisar fundamentos ausentes de %s: %s", symbol, exc)
 
 
+def run_telegram_polling(bot: telebot.TeleBot) -> None:
+    """Inicia polling e aguarda conflitos 409 transitórios entre instâncias."""
+    retry_seconds = 10
+    while True:
+        try:
+            bot.infinity_polling(
+                skip_pending=True,
+                restart_on_change=False,
+            )
+            return
+        except Exception as exc:
+            if getattr(exc, "error_code", None) != 409:
+                log.exception("❌ Polling encerrado com erro: %s", exc)
+                raise
+
+            log.warning(
+                "⚠️ Telegram recusou o polling por outra instância (409). "
+                "Tentando novamente em %s segundos.",
+                retry_seconds,
+            )
+            time.sleep(retry_seconds)
+            retry_seconds = min(retry_seconds * 2, 60)
+
+
 def _order_alert_episode_key(
     symbol: str,
     preco_ordem: float,
@@ -2209,25 +2233,8 @@ def main() -> None:
     # TELEGRAM POLLING
     # -----------------------------------------------------------------------
 
-    try:
-
-        log.info(
-            "📡 Iniciando Telegram polling..."
-        )
-
-        bot.infinity_polling(
-            skip_pending=True,
-            restart_on_change=False,
-        )
-
-    except Exception as e:
-
-        log.exception(
-            "❌ Polling encerrado com erro: %s",
-            e,
-        )
-
-        raise
+    log.info("📡 Iniciando Telegram polling...")
+    run_telegram_polling(bot)
 
 
 # ===========================================================================
