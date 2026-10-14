@@ -37,6 +37,90 @@
       "parametros": {}
     }
   },
+  "opportunity_alerts": {
+    "comment": "Cadastre os tickers depois de definir os ativos. Os preços dos ativos em 'assets' continuam usados pelo comando /status, mas não disparam estes alertas. Venda: ticker, dpa_12m e dividend_yield_minimo_pct (opcional, padrão 6). Compra: ticker, lpa e vpa. Análise: ticker, preco_minimo e preco_maximo.",
+    "margem_proximidade_pct": 0,
+    "venda": [
+      {
+        "ticker": "ITUB4.SA",
+        "nome_amigavel": "Itaú Unibanco"
+      },
+      {
+        "ticker": "TOTS3.SA",
+        "nome_amigavel": "TOTVS"
+      },
+      {
+        "ticker": "TAEE11.SA",
+        "nome_amigavel": "Taesa"
+      },
+      {
+        "ticker": "BBSE3.SA",
+        "nome_amigavel": "BB Seguridade"
+      },
+      {
+        "ticker": "WEGE3.SA",
+        "nome_amigavel": "WEG"
+      },
+      {
+        "ticker": "TIMS3.SA",
+        "nome_amigavel": "TIM Brasil"
+      }
+    ],
+    "compra": [
+      {
+        "ticker": "ITUB4.SA",
+        "nome_amigavel": "Itaú Unibanco"
+      },
+      {
+        "ticker": "TAEE11.SA",
+        "nome_amigavel": "Taesa"
+      },
+      {
+        "ticker": "TOTS3.SA",
+        "nome_amigavel": "TOTVS"
+      },
+      {
+        "ticker": "SBSP3.SA",
+        "nome_amigavel": "Sabesp"
+      },
+      {
+        "ticker": "CMIG4.SA",
+        "nome_amigavel": "Cemig"
+      }
+    ],
+    "analise": [
+      {
+        "ticker": "B3SA3.SA",
+        "nome_amigavel": "B3",
+        "preco_minimo": 19,
+        "preco_maximo": 20.5
+      },
+      {
+        "ticker": "CYRE3.SA",
+        "nome_amigavel": "Cyrela",
+        "preco_minimo": 29,
+        "preco_maximo": 32
+      },
+      {
+        "ticker": "CEAB3.SA",
+        "nome_amigavel": "C&A",
+        "preco_minimo": 11,
+        "preco_maximo": 12
+      },
+      {
+        "ticker": "BBAS3.SA",
+        "nome_amigavel": "Banco do Brasil",
+        "preco_minimo": 20,
+        "preco_maximo": 22
+      },
+      {
+        "ticker": "PETR4.SA",
+        "nome_amigavel": "Petrobras PN",
+        "preco_minimo": 47,
+        "preco_maximo": 51
+      }
+    ]
+  },
   "assets": [
     {
       "ticker": "IVVB11.SA",

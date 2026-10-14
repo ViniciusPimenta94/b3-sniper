@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 import logging
+import calendar
+import math
 import os
 import threading
 import time
@@ -168,6 +170,17 @@ def load_config() -> dict:
 
     with open(config_file, encoding="utf-8") as f:
         config = json.load(f)
+
+    # Mantém a nova estrutura de alertas disponível também em config.json
+    # local antigo, sem substituir valores definidos pelo usuário.
+    if CONFIG_EXAMPLE_PATH.is_file():
+        with open(CONFIG_EXAMPLE_PATH, encoding="utf-8") as f:
+            defaults = json.load(f).get("opportunity_alerts", {})
+        configured = config.get("opportunity_alerts") or {}
+        merged = {**defaults, **configured}
+        for category in ("venda", "compra", "analise"):
+            merged.setdefault(category, defaults.get(category, []))
+        config["opportunity_alerts"] = merged
 
     # Garante que a seção telegram exista
     if "telegram" not in config:
@@ -416,6 +429,120 @@ def parse_assets(
         )
 
     return out
+
+
+def parse_opportunity_rules(cfg: dict) -> list[dict]:
+    """Carrega regras configuradas para os três tipos de oportunidade."""
+    section = cfg.get("opportunity_alerts") or {}
+    rules: list[dict] = []
+
+    categories = ("venda", "compra", "analise")
+
+    try:
+        margin_value = float(section.get("margem_proximidade_pct", 0))
+        margin = max(0.0, margin_value) / 100 if math.isfinite(margin_value) else 0.0
+    except (TypeError, ValueError):
+        margin = 0.0
+        log.warning("Margem de proximidade inválida; usando 0%%.")
+
+    for category in categories:
+        entries = section.get(category) or []
+        if not isinstance(entries, list):
+            log.warning("A lista de oportunidade '%s' deve ser uma lista.", category)
+            continue
+
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+            ticker = str(item.get("ticker", "")).strip()
+            if not ticker:
+                log.warning("Regra de oportunidade sem ticker ignorada: %s", item)
+                continue
+
+            rule = {"category": category, "ticker": ticker,
+                    "label": str(item.get("nome_amigavel") or ticker).strip(),
+                    "margin": margin, "configured": item}
+            try:
+                if category == "venda":
+                    yield_pct = float(item.get("dividend_yield_minimo_pct", 6))
+                    if yield_pct <= 0 or not math.isfinite(yield_pct):
+                        raise ValueError("yield mínimo deve ser positivo")
+                    rule["yield_pct"] = yield_pct
+                elif category == "compra":
+                    # LPA e VPA são consultados automaticamente no Yahoo Finance.
+                    pass
+                else:
+                    low, high = float(item["preco_minimo"]), float(item["preco_maximo"])
+                    if low < 0 or high < low:
+                        raise ValueError("Faixa de preço inválida")
+                    rule["low"], rule["high"] = low, high
+                    rule["basis"] = "Faixa de preço configurada"
+            except (KeyError, TypeError, ValueError) as exc:
+                log.warning("Regra de oportunidade inválida (%s): %s", ticker, exc)
+                continue
+            rules.append(rule)
+
+    return rules
+
+
+_fundamentals_cache: dict[str, tuple[float, dict]] = {}
+_FUNDAMENTALS_CACHE_SECONDS = 12 * 60 * 60
+
+
+def _one_year_before(day):
+    """Retorna a data equivalente no ano anterior, tratando 29 de fevereiro."""
+    year = day.year - 1
+    return day.replace(year=year, day=min(day.day, calendar.monthrange(year, day.month)[1]))
+
+
+def get_opportunity_fundamentals(symbol: str, category: str) -> dict:
+    """Busca DPA TTM ou LPA/VPA no Yahoo Finance, com cache por ticker."""
+    cache_key = f"{symbol}|{category}"
+    now = time.monotonic()
+    cached = _fundamentals_cache.get(cache_key)
+    if cached and now - cached[0] < _FUNDAMENTALS_CACHE_SECONDS:
+        return dict(cached[1])
+
+    data = {"dpa_12m": None, "lpa": None, "vpa": None, "missing": []}
+    try:
+        ticker = yf.Ticker(symbol)
+        if category == "venda":
+            try:
+                dividends = ticker.dividends
+                if dividends is not None and not dividends.empty:
+                    today = datetime.now(TZ_BRASILIA).date()
+                    start = _one_year_before(today)
+                    total = 0.0
+                    for event_date, amount in dividends.items():
+                        event_day = event_date.date() if hasattr(event_date, "date") else event_date
+                        if start <= event_day <= today:
+                            total += float(amount)
+                    if total > 0:
+                        data["dpa_12m"] = total
+            except Exception as exc:
+                log.warning("Falha ao consultar dividendos de %s: %s", symbol, exc)
+        else:
+            try:
+                info = ticker.info or {}
+                data["lpa"] = info.get("trailingEps")
+                data["vpa"] = info.get("bookValue")
+            except Exception as exc:
+                log.warning("Falha ao consultar fundamentos de %s: %s", symbol, exc)
+    except Exception as exc:
+        log.warning("Falha ao consultar Yahoo Finance para %s: %s", symbol, exc)
+
+    _fundamentals_cache[cache_key] = (now, dict(data))
+    return data
+
+
+def _valid_positive_number(value) -> float | None:
+    try:
+        number = float(value)
+        if number > 0 and math.isfinite(number):
+            return number
+    except (TypeError, ValueError):
+        pass
+    return None
 
 
 # ===========================================================================
@@ -1186,42 +1313,52 @@ def build_order_alert_message(
     )
 
 
-def build_alert_message(
-    asset: AssetConfig,
-    symbol: str,
-    price: float,
-    preco_teto: float,
-) -> str:
-    """
-    Mensagem quando um ativo
-    atinge o preço teto.
-    """
+def build_opportunity_message(rule: dict, symbol: str, price: float) -> str:
+    """Monta um alerta específico de venda, compra ou análise."""
+    labels = {
+        "venda": ("📈 Alerta de oportunidade de venda", "Preço teto", "O preço está próximo ou acima do preço teto."),
+        "compra": ("📉 Alerta de oportunidade de compra", "Preço justo", "O preço está próximo ou abaixo do preço justo."),
+        "analise": ("🔎 Alerta de oportunidade de análise", "Faixa configurada", "O preço atual está dentro da faixa definida."),
+    }
+    title, reference_label, description = labels[rule["category"]]
+    label = md_escape(rule["label"])
+    symbol_display = md_escape(display_ticker(symbol))
+    lines = [
+        f"*{title}*", "", f"*{label}* \\({symbol_display}\\)", "",
+        f"Preço atual: *{md_escape(format_money(price))}*",
+    ]
+    if rule["category"] == "analise":
+        lines.append(
+            f"{reference_label}: *{md_escape(format_money(rule['low']))} a "
+            f"{md_escape(format_money(rule['high']))}*"
+        )
+    else:
+        lines.append(
+            f"{reference_label}: *{md_escape(format_money(rule['target']))}*"
+        )
+        if rule["category"] == "venda":
+            lines.append(
+                f"DPA 12M: *{md_escape(format_money(rule['dpa_12m']))}* | "
+                f"Yield mínimo: *{rule['yield_pct']:g}%*"
+            )
+        else:
+            lines.append(
+                f"LPA: *{md_escape(format_money(rule['lpa']))}* | "
+                f"VPA: *{md_escape(format_money(rule['vpa']))}*"
+            )
+    lines.extend(["", md_escape(description), f"_{md_escape(rule['basis'])}_"])
+    return "\n".join(lines)
 
-    label = md_escape(
-        asset.label
-    )
 
-    symbol_display = md_escape(
-        display_ticker(symbol)
-    )
-
+def build_missing_fundamentals_message(rule: dict, symbol: str, price: float, missing: list[str]) -> str:
+    """Informa que os dados faltantes impediram avaliar a oportunidade."""
+    category = "venda" if rule["category"] == "venda" else "compra"
     return (
-        f"*🚨 Alerta de oportunidade*\n\n"
-
-        f"*📉 {label}* "
-        f"\\({symbol_display}\\)\n\n"
-
-        f"Preço atual: "
-        f"*{md_escape(format_money(price))}*\n"
-
-        f"Preço teto: "
-        f"*{md_escape(format_money(preco_teto))}*\n\n"
-
-        f"🎯 O ativo está no preço teto "
-        f"ou abaixo dele\\.\n\n"
-
-        f"_Considere sua própria análise "
-        f"antes de operar\\._"
+        f"⚠️ Alerta de oportunidade de {category} não calculado\n\n"
+        f"Ativo: {rule['label']} ({display_ticker(symbol)})\n"
+        f"Preço atual: {format_money(price)}\n"
+        f"Dados ausentes ou inválidos: {', '.join(missing)}\n\n"
+        "O limite não foi calculado e nenhum sinal de compra/venda foi emitido."
     )
 
 
@@ -1236,14 +1373,34 @@ _order_alert_episode_keys: set[str] = set()
 _eod_summary_sent_date: str | None = None
 
 
-def _alert_episode_key(
-    symbol: str,
-    preco_teto: float,
-) -> str:
+def _missing_fundamentals_key(category: str, symbol: str) -> str:
+    return f"dados_pendentes|{category}|{symbol}"
 
-    return (
-        f"{symbol}|{preco_teto}"
-    )
+
+def _clear_missing_fundamentals_alert(category: str, symbol: str) -> None:
+    _alert_episode_keys.discard(_missing_fundamentals_key(category, symbol))
+
+
+def _send_missing_fundamentals_alert(
+    bot: telebot.TeleBot,
+    chat_id: str,
+    rule: dict,
+    symbol: str,
+    price: float,
+    missing: list[str],
+) -> None:
+    key = _missing_fundamentals_key(rule["category"], symbol)
+    if key in _alert_episode_keys:
+        return
+    try:
+        bot.send_message(
+            chat_id,
+            build_missing_fundamentals_message(rule, symbol, price, missing),
+        )
+        _alert_episode_keys.add(key)
+        log.warning("Aviso enviado; fundamentos indisponíveis para %s: %s", symbol, missing)
+    except Exception as exc:
+        log.exception("Falha ao avisar fundamentos ausentes de %s: %s", symbol, exc)
 
 
 def _order_alert_episode_key(
@@ -1267,11 +1424,14 @@ def run_price_check(
     assets: list[AssetConfig],
 ) -> None:
     """
-    Verifica se os ativos atingiram
-    seus respectivos preços teto.
+    Verifica os alertas de oportunidade de venda, compra e análise.
+    A lista `assets` permanece no parâmetro por compatibilidade com a chamada
+    atual; os alertas são definidos exclusivamente em opportunity_alerts.
     """
 
-    if not assets:
+    rules = parse_opportunity_rules(cfg)
+    if not rules:
+        log.info("Nenhuma regra de alerta de oportunidade configurada.")
         return
 
     if not is_trading_window(cfg):
@@ -1283,7 +1443,7 @@ def run_price_check(
 
         return
 
-    for asset in assets:
+    for rule in rules:
 
         try:
 
@@ -1293,7 +1453,7 @@ def run_price_check(
 
             symbol, price_try = (
                 resolve_yahoo_symbol(
-                    asset.ticker
+                    rule["ticker"]
                 )
             )
 
@@ -1308,88 +1468,80 @@ def run_price_check(
                 log.warning(
                     "Não foi possível obter preço para %s "
                     "(resolvido: %s)",
-                    asset.ticker,
+                    rule["ticker"],
                     symbol,
                 )
 
                 continue
 
-            teto = asset.preco_teto
-
-            key = _alert_episode_key(
-                symbol,
-                teto,
-            )
-
-            # ---------------------------------------------------------------
-            # OPORTUNIDADE
-            # ---------------------------------------------------------------
-
-            if price <= teto:
-
-                if key in _alert_episode_keys:
-
-                    log.info(
-                        "ℹ️ Alerta já enviado anteriormente: %s",
-                        symbol,
-                    )
-
+            category = rule["category"]
+            if category == "venda":
+                configured_dpa = rule["configured"].get("dpa_12m")
+                dpa = _valid_positive_number(configured_dpa)
+                if dpa is None:
+                    data = get_opportunity_fundamentals(symbol, category)
+                    dpa = _valid_positive_number(data.get("dpa_12m"))
+                missing = [] if dpa is not None else ["DPA dos últimos 12 meses"]
+                if missing:
+                    _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
                     continue
+                _clear_missing_fundamentals_alert(category, symbol)
+                rule["dpa_12m"] = dpa
+                target = dpa / (rule["yield_pct"] / 100)
+                rule["target"] = target
+                rule["basis"] = f"Preço teto = DPA 12M / yield mínimo de {rule['yield_pct']:g}%"
+                active = price >= target * (1 - rule["margin"])
+                reference_key = f"{target:.8f}"
+            elif category == "compra":
+                configured = rule["configured"]
+                lpa = _valid_positive_number(configured.get("lpa"))
+                vpa = _valid_positive_number(configured.get("vpa"))
+                if lpa is None or vpa is None:
+                    data = get_opportunity_fundamentals(symbol, category)
+                    lpa = lpa or _valid_positive_number(data.get("lpa"))
+                    vpa = vpa or _valid_positive_number(data.get("vpa"))
+                missing = []
+                if lpa is None:
+                    missing.append("LPA (lucro por ação / trailing EPS)")
+                if vpa is None:
+                    missing.append("VPA (valor patrimonial por ação / book value)")
+                if missing:
+                    _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
+                    continue
+                _clear_missing_fundamentals_alert(category, symbol)
+                rule["lpa"], rule["vpa"] = lpa, vpa
+                target = (22.5 * lpa * vpa) ** 0.5
+                rule["target"] = target
+                rule["basis"] = "Preço justo = √(22,5 × LPA × VPA)"
+                active = price <= target * (1 + rule["margin"])
+                reference_key = f"{target:.8f}"
+            else:
+                active = rule["low"] <= price <= rule["high"]
+                reference_key = f"{rule['low']:.8f}:{rule['high']:.8f}"
 
-                message = build_alert_message(
-                    asset,
-                    symbol,
-                    price,
-                    teto,
-                )
-
+            key = f"{category}|{symbol}|{reference_key}"
+            if active:
+                if key in _alert_episode_keys:
+                    log.info("ℹ️ Alerta %s já enviado: %s", category, symbol)
+                    continue
                 try:
-
                     bot.send_message(
                         chat_id,
-                        message,
+                        build_opportunity_message(rule, symbol, price),
                         parse_mode="MarkdownV2",
                     )
-
-                    _alert_episode_keys.add(
-                        key
-                    )
-
-                    log.info(
-                        "🚨 Alerta enviado: %s @ %.2f",
-                        symbol,
-                        price,
-                    )
-
+                    _alert_episode_keys.add(key)
+                    log.info("🚨 Alerta de %s enviado: %s @ %.2f", category, symbol, price)
                 except Exception as e:
-
-                    log.exception(
-                        "Falha ao enviar alerta Telegram: %s",
-                        e,
-                    )
-
-            # ---------------------------------------------------------------
-            # PREÇO VOLTOU A SUBIR
-            # ---------------------------------------------------------------
-
+                    log.exception("Falha ao enviar alerta Telegram: %s", e)
             else:
-
-                if key in _alert_episode_keys:
-
-                    log.info(
-                        "🔄 %s voltou acima do preço teto.",
-                        symbol,
-                    )
-
-                _alert_episode_keys.discard(
-                    key
-                )
+                _alert_episode_keys.discard(key)
 
         except Exception as e:
 
             log.exception(
-                "Erro ao processar ativo %s: %s",
-                asset.ticker,
+                "Erro ao processar regra %s: %s",
+                rule.get("ticker", "?"),
                 e,
             )
 
