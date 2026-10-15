@@ -23,8 +23,8 @@ Bibliotecas:
 from __future__ import annotations
 
 import json
-import logging
 import calendar
+import logging
 import math
 import os
 import threading
@@ -469,7 +469,7 @@ def parse_opportunity_rules(cfg: dict) -> list[dict]:
                         raise ValueError("yield mínimo deve ser positivo")
                     rule["yield_pct"] = yield_pct
                 elif category == "compra":
-                    # LPA e VPA são consultados automaticamente no Yahoo Finance.
+                    # LPA e VPA são preenchidos manualmente em opportunity_alerts.
                     pass
                 else:
                     low, high = float(item["preco_minimo"]), float(item["preco_maximo"])
@@ -483,56 +483,6 @@ def parse_opportunity_rules(cfg: dict) -> list[dict]:
             rules.append(rule)
 
     return rules
-
-
-_fundamentals_cache: dict[str, tuple[float, dict]] = {}
-_FUNDAMENTALS_CACHE_SECONDS = 12 * 60 * 60
-
-
-def _one_year_before(day):
-    """Retorna a data equivalente no ano anterior, tratando 29 de fevereiro."""
-    year = day.year - 1
-    return day.replace(year=year, day=min(day.day, calendar.monthrange(year, day.month)[1]))
-
-
-def get_opportunity_fundamentals(symbol: str, category: str) -> dict:
-    """Busca DPA TTM ou LPA/VPA no Yahoo Finance, com cache por ticker."""
-    cache_key = f"{symbol}|{category}"
-    now = time.monotonic()
-    cached = _fundamentals_cache.get(cache_key)
-    if cached and now - cached[0] < _FUNDAMENTALS_CACHE_SECONDS:
-        return dict(cached[1])
-
-    data = {"dpa_12m": None, "lpa": None, "vpa": None, "missing": []}
-    try:
-        ticker = yf.Ticker(symbol)
-        if category == "venda":
-            try:
-                dividends = ticker.dividends
-                if dividends is not None and not dividends.empty:
-                    today = datetime.now(TZ_BRASILIA).date()
-                    start = _one_year_before(today)
-                    total = 0.0
-                    for event_date, amount in dividends.items():
-                        event_day = event_date.date() if hasattr(event_date, "date") else event_date
-                        if start <= event_day <= today:
-                            total += float(amount)
-                    if total > 0:
-                        data["dpa_12m"] = total
-            except Exception as exc:
-                log.warning("Falha ao consultar dividendos de %s: %s", symbol, exc)
-        else:
-            try:
-                info = ticker.info or {}
-                data["lpa"] = info.get("trailingEps")
-                data["vpa"] = info.get("bookValue")
-            except Exception as exc:
-                log.warning("Falha ao consultar fundamentos de %s: %s", symbol, exc)
-    except Exception as exc:
-        log.warning("Falha ao consultar Yahoo Finance para %s: %s", symbol, exc)
-
-    _fundamentals_cache[cache_key] = (now, dict(data))
-    return data
 
 
 def _valid_positive_number(value) -> float | None:
@@ -1371,6 +1321,7 @@ _alert_episode_keys: set[str] = set()
 _order_alert_episode_keys: set[str] = set()
 
 _eod_summary_sent_date: str | None = None
+_fundamentals_reminder_sent_month: str | None = None
 
 
 def _missing_fundamentals_key(category: str, symbol: str) -> str:
@@ -1502,10 +1453,7 @@ def run_price_check(
             if category == "venda":
                 configured_dpa = rule["configured"].get("dpa_12m")
                 dpa = _valid_positive_number(configured_dpa)
-                if dpa is None:
-                    data = get_opportunity_fundamentals(symbol, category)
-                    dpa = _valid_positive_number(data.get("dpa_12m"))
-                missing = [] if dpa is not None else ["DPA dos últimos 12 meses"]
+                missing = [] if dpa is not None else ["DPA 12M (campo dpa_12m na configuração)"]
                 if missing:
                     _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
                     continue
@@ -1520,15 +1468,11 @@ def run_price_check(
                 configured = rule["configured"]
                 lpa = _valid_positive_number(configured.get("lpa"))
                 vpa = _valid_positive_number(configured.get("vpa"))
-                if lpa is None or vpa is None:
-                    data = get_opportunity_fundamentals(symbol, category)
-                    lpa = lpa or _valid_positive_number(data.get("lpa"))
-                    vpa = vpa or _valid_positive_number(data.get("vpa"))
                 missing = []
                 if lpa is None:
-                    missing.append("LPA (lucro por ação / trailing EPS)")
+                    missing.append("LPA (campo lpa na configuração)")
                 if vpa is None:
-                    missing.append("VPA (valor patrimonial por ação / book value)")
+                    missing.append("VPA (campo vpa na configuração)")
                 if missing:
                     _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
                     continue
@@ -1791,6 +1735,65 @@ def run_eod_summary(
         )
 
 
+def run_fundamentals_update_reminder(
+    bot: telebot.TeleBot,
+    chat_id: str,
+    cfg: dict,
+    now: datetime | None = None,
+) -> None:
+    """Lembra mensalmente de atualizar DPA, LPA e VPA na configuração."""
+    global _fundamentals_reminder_sent_month
+
+    schedule_config = get_schedule_config(cfg)
+    opportunity_config = cfg.get("opportunity_alerts") or {}
+    timezone = get_schedule_tz(cfg)
+    current = now or datetime.now(timezone)
+
+    try:
+        reminder_day = int(schedule_config.get("fundamentals_update_reminder_day", 1))
+    except (TypeError, ValueError):
+        reminder_day = 1
+    reminder_day = max(1, min(reminder_day, 31))
+    reminder_day = min(
+        reminder_day,
+        calendar.monthrange(current.year, current.month)[1],
+    )
+    reminder_time = str(schedule_config.get("fundamentals_update_reminder_time") or "21:00")
+
+    if current.day != reminder_day or current.strftime("%H:%M") < reminder_time:
+        return
+
+    month_key = current.strftime("%Y-%m")
+    if _fundamentals_reminder_sent_month == month_key:
+        return
+
+    sale_tickers = ", ".join(
+        str(item.get("ticker", ""))
+        for item in opportunity_config.get("venda", [])
+        if isinstance(item, dict)
+    ) or "nenhum ativo cadastrado"
+    buy_tickers = ", ".join(
+        str(item.get("ticker", ""))
+        for item in opportunity_config.get("compra", [])
+        if isinstance(item, dict)
+    ) or "nenhum ativo cadastrado"
+
+    message = (
+        "🔔 Lembrete mensal — atualizar fundamentos do B3 Sniper\n\n"
+        f"Atualize a seção opportunity_alerts da configuração:\n"
+        f"• Venda: preencher dpa_12m para {sale_tickers}.\n"
+        f"• Compra: preencher lpa e vpa para {buy_tickers}.\n\n"
+        "Após alterar os valores usados no Render, faça commit e deploy para aplicar a atualização."
+    )
+
+    try:
+        bot.send_message(chat_id, message)
+        _fundamentals_reminder_sent_month = month_key
+        log.info("🔔 Lembrete mensal de fundamentos enviado (%s).", month_key)
+    except Exception as exc:
+        log.exception("Falha ao enviar lembrete mensal de fundamentos: %s", exc)
+
+
 # ===========================================================================
 # HEARTBEAT
 # ===========================================================================
@@ -1995,6 +1998,37 @@ def main() -> None:
         log.exception(
             "Erro ao agendar resumo diário (%s): %s",
             eod_time,
+            e,
+        )
+
+    reminder_day = schedule_config.get(
+        "fundamentals_update_reminder_day",
+        1,
+    )
+    reminder_time = (
+        schedule_config.get("fundamentals_update_reminder_time")
+        or eod_time
+    )
+
+    try:
+        schedule.every().day.at(reminder_time).do(
+            lambda: run_fundamentals_update_reminder(
+                bot,
+                chat_id,
+                cfg,
+            )
+        )
+        log.info(
+            "⏰ Lembrete mensal de fundamentos agendado para o dia %s às %s.",
+            reminder_day,
+            reminder_time,
+        )
+        # Recupera o lembrete se o serviço iniciou depois do horário nesse dia.
+        run_fundamentals_update_reminder(bot, chat_id, cfg)
+    except Exception as e:
+        log.exception(
+            "Erro ao agendar lembrete mensal de fundamentos (%s): %s",
+            reminder_time,
             e,
         )
 

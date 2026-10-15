@@ -13,7 +13,9 @@
       "start": "10:00",
       "end": "17:55"
     },
-    "eod_summary_time": "21:00"
+    "eod_summary_time": "21:00",
+    "fundamentals_update_reminder_day": 1,
+    "fundamentals_update_reminder_time": "21:00"
   },
   "estrategias": {
     "max_52_semanas": {
@@ -38,54 +40,70 @@
     }
   },
   "opportunity_alerts": {
-    "comment": "Cadastre os tickers depois de definir os ativos. Os preços dos ativos em 'assets' continuam usados pelo comando /status, mas não disparam estes alertas. Venda: ticker, dpa_12m e dividend_yield_minimo_pct (opcional, padrão 6). Compra: ticker, lpa e vpa. Análise: ticker, preco_minimo e preco_maximo.",
+    "comment": "Os fundamentos dos alertas de venda e compra são preenchidos manualmente. Venda: ticker, dpa_12m e dividend_yield_minimo_pct (opcional, padrão 6). Compra: ticker, lpa e vpa. Análise: ticker, preco_minimo e preco_maximo.",
     "margem_proximidade_pct": 0,
     "venda": [
       {
         "ticker": "ITUB4.SA",
-        "nome_amigavel": "Itaú Unibanco"
+        "nome_amigavel": "Itaú Unibanco",
+        "dpa_12m": null
       },
       {
         "ticker": "TOTS3.SA",
-        "nome_amigavel": "TOTVS"
+        "nome_amigavel": "TOTVS",
+        "dpa_12m": null
       },
       {
         "ticker": "TAEE11.SA",
-        "nome_amigavel": "Taesa"
+        "nome_amigavel": "Taesa",
+        "dpa_12m": null
       },
       {
         "ticker": "BBSE3.SA",
-        "nome_amigavel": "BB Seguridade"
+        "nome_amigavel": "BB Seguridade",
+        "dpa_12m": null
       },
       {
         "ticker": "WEGE3.SA",
-        "nome_amigavel": "WEG"
+        "nome_amigavel": "WEG",
+        "dpa_12m": null
       },
       {
         "ticker": "TIMS3.SA",
-        "nome_amigavel": "TIM Brasil"
+        "nome_amigavel": "TIM Brasil",
+        "dpa_12m": null
       }
     ],
     "compra": [
       {
         "ticker": "ITUB4.SA",
-        "nome_amigavel": "Itaú Unibanco"
+        "nome_amigavel": "Itaú Unibanco",
+        "lpa": null,
+        "vpa": null
       },
       {
         "ticker": "TAEE11.SA",
-        "nome_amigavel": "Taesa"
+        "nome_amigavel": "Taesa",
+        "lpa": null,
+        "vpa": null
       },
       {
         "ticker": "TOTS3.SA",
-        "nome_amigavel": "TOTVS"
+        "nome_amigavel": "TOTVS",
+        "lpa": null,
+        "vpa": null
       },
       {
         "ticker": "SBSP3.SA",
-        "nome_amigavel": "Sabesp"
+        "nome_amigavel": "Sabesp",
+        "lpa": null,
+        "vpa": null
       },
       {
         "ticker": "CMIG4.SA",
-        "nome_amigavel": "Cemig"
+        "nome_amigavel": "Cemig",
+        "lpa": null,
+        "vpa": null
       }
     ],
     "analise": [
