@@ -60,7 +60,7 @@ from flask import Flask
 BASE_DIR = Path(__file__).resolve().parent
 
 CONFIG_PATH = BASE_DIR / "config.json"
-CONFIG_EXAMPLE_PATH = BASE_DIR / "config.example.json"
+CONFIG_LOCAL_PATH = BASE_DIR / "config.local.json"
 ORDENS_PATH = BASE_DIR / "ordens.json"
 
 
@@ -140,9 +140,8 @@ def load_config() -> dict:
     """
     Carrega a configuração do bot.
 
-    Prioridade:
-    1. config.json
-    2. config.example.json
+    Usa config.local.json para credenciais locais, quando existir;
+    no Render, usa o config.json versionado e as variáveis de ambiente.
 
     As variáveis de ambiente do Render sobrescrevem
     as configurações do Telegram.
@@ -150,31 +149,25 @@ def load_config() -> dict:
 
     config_file = None
 
-    if CONFIG_PATH.is_file():
+    if CONFIG_LOCAL_PATH.is_file():
+        config_file = CONFIG_LOCAL_PATH
+
+    elif CONFIG_PATH.is_file():
         config_file = CONFIG_PATH
-
-    elif CONFIG_EXAMPLE_PATH.is_file():
-        config_file = CONFIG_EXAMPLE_PATH
-
-        log.warning(
-            "⚠️ config.json não encontrado. "
-            "Utilizando config.example.json."
-        )
 
     else:
         raise FileNotFoundError(
             "Nenhum arquivo de configuração encontrado. "
-            f"Esperado: {CONFIG_PATH} "
-            f"ou {CONFIG_EXAMPLE_PATH}"
+            f"Esperado: {CONFIG_PATH} ou {CONFIG_LOCAL_PATH}"
         )
 
     with open(config_file, encoding="utf-8") as f:
         config = json.load(f)
 
-    # Mantém a nova estrutura de alertas disponível também em config.json
-    # local antigo, sem substituir valores definidos pelo usuário.
-    if CONFIG_EXAMPLE_PATH.is_file():
-        with open(CONFIG_EXAMPLE_PATH, encoding="utf-8") as f:
+    # Mescla os alertas padrão do arquivo versionado na configuração local,
+    # preservando todos os valores preenchidos localmente.
+    if config_file != CONFIG_PATH and CONFIG_PATH.is_file():
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             defaults = json.load(f).get("opportunity_alerts", {})
         configured = config.get("opportunity_alerts") or {}
         merged = {**defaults, **configured}

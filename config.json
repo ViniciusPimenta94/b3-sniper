@@ -40,70 +40,70 @@
     }
   },
   "opportunity_alerts": {
-    "comment": "Os fundamentos dos alertas de venda e compra são preenchidos manualmente. Venda: ticker, dpa_12m e dividend_yield_minimo_pct (opcional, padrão 6). Compra: ticker, lpa e vpa. Análise: ticker, preco_minimo e preco_maximo.",
+    "comment": "Consultado em 14/10/2026. DPA: proventos brutos por ação em janela móvel de 12 meses conforme a fonte de cada ativo, incluindo JCP. LPA: trailing 12 meses; VPA: último balanço disponível (2T26, encerrado em 30/06/2026), conforme Fundamentus. Atualizar mensalmente.",
     "margem_proximidade_pct": 0,
     "venda": [
       {
         "ticker": "ITUB4.SA",
         "nome_amigavel": "Itaú Unibanco",
-        "dpa_12m": null
+        "dpa_12m": 3.1659
       },
       {
         "ticker": "TOTS3.SA",
         "nome_amigavel": "TOTVS",
-        "dpa_12m": null
+        "dpa_12m": 0.68
       },
       {
         "ticker": "TAEE11.SA",
         "nome_amigavel": "Taesa",
-        "dpa_12m": null
+        "dpa_12m": 3.0065
       },
       {
         "ticker": "BBSE3.SA",
         "nome_amigavel": "BB Seguridade",
-        "dpa_12m": null
+        "dpa_12m": 4.5901
       },
       {
         "ticker": "WEGE3.SA",
         "nome_amigavel": "WEG",
-        "dpa_12m": null
+        "dpa_12m": 2.0063
       },
       {
         "ticker": "TIMS3.SA",
         "nome_amigavel": "TIM Brasil",
-        "dpa_12m": null
+        "dpa_12m": 1.4723
       }
     ],
     "compra": [
       {
         "ticker": "ITUB4.SA",
         "nome_amigavel": "Itaú Unibanco",
-        "lpa": null,
-        "vpa": null
+        "lpa": 4.23,
+        "vpa": 18.83
       },
       {
         "ticker": "TAEE11.SA",
         "nome_amigavel": "Taesa",
-        "lpa": null,
-        "vpa": null
+        "lpa": 4.72,
+        "vpa": 23.43
       },
       {
         "ticker": "TOTS3.SA",
         "nome_amigavel": "TOTVS",
-        "lpa": null,
-        "vpa": null
+        "lpa": 2.46,
+        "vpa": 9.42
       },
       {
         "ticker": "SBSP3.SA",
         "nome_amigavel": "Sabesp",
-        "lpa": null,
-        "vpa": null
+        "lpa": 2.28,
+        "vpa": 12.82
       },
       {
         "ticker": "CMIG4.SA",
         "nome_amigavel": "Cemig",
-        "lpa": null,
-        "vpa": null
+        "lpa": 1.61,
+        "vpa": 10.20
       }
     ],
     "analise": [

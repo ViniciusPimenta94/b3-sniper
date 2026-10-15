@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-import shutil
 import sys
 
 root = Path(__file__).resolve().parent
 
 config = root / "config.json"
-example = root / "config.example.json"
+local_config = root / "config.local.json"
 
 print(f"📁 Diretório do projeto: {root}")
 print(f"📄 Procurando config.json: {config}")
-print(f"📄 Procurando config.example.json: {example}")
+print(f"📄 Procurando config.local.json: {local_config}")
 
 if config.is_file():
     print("✅ config.json já existe.")
-elif example.is_file():
-    shutil.copy(example, config)
-    print("✅ config.json criado a partir de config.example.json.")
+    if local_config.is_file():
+        print("✅ config.local.json será usado localmente para credenciais.")
 else:
-    print("❌ config.example.json não encontrado!")
+    print("❌ config.json não encontrado!")
     sys.exit(1)
