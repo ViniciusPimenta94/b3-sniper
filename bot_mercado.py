@@ -496,65 +496,11 @@ def _price_from_ticker(
     ticker: yf.Ticker,
 ) -> float | None:
     """
-    Obtém o último preço conhecido.
+    Obtém o último preço conhecido pelo histórico de cotações.
+
+    Prioriza o histórico para evitar chamadas auxiliares do `fast_info`,
+    associadas aos erros 401/Invalid Crumb observados no Render.
     """
-
-    # -----------------------------------------------------------------------
-    # FAST INFO
-    # -----------------------------------------------------------------------
-
-    try:
-
-        fi = ticker.fast_info
-
-        if fi is not None:
-
-            for key in (
-                "last_price",
-                "regular_market_price",
-                "previous_close",
-            ):
-
-                try:
-
-                    value = (
-                        getattr(
-                            fi,
-                            key,
-                            None,
-                        )
-                        if not isinstance(
-                            fi,
-                            dict,
-                        )
-                        else fi.get(key)
-                    )
-
-                    if (
-                        value is not None
-                        and float(value) > 0
-                    ):
-
-                        return float(value)
-
-                except Exception:
-                    continue
-
-    except Exception as e:
-
-        log.debug(
-            "fast_info falhou para %s: %s",
-            getattr(
-                ticker,
-                "ticker",
-                "desconhecido",
-            ),
-            e,
-        )
-
-    # -----------------------------------------------------------------------
-    # HISTORY
-    # -----------------------------------------------------------------------
 
     try:
 
@@ -597,15 +543,13 @@ def resolve_yahoo_symbol(
     user_ticker: str,
 ) -> tuple[str, float | None]:
     """
-    Valida o ticker no Yahoo Finance.
-
-    Se o ticker puro falhar, tenta automaticamente
-    adicionar .SA.
+    Resolve o ticker no Yahoo Finance. Para ativos brasileiros,
+    tenta primeiro o sufixo .SA e só usa o símbolo puro como fallback.
 
     Exemplos:
 
-    CMIG4 -> CMIG4 -> CMIG4.SA
-    XPLG11 -> XPLG11 -> XPLG11.SA
+    CMIG4 -> CMIG4.SA
+    XPLG11 -> XPLG11.SA
     """
 
     base = user_ticker.strip().upper()
@@ -613,12 +557,7 @@ def resolve_yahoo_symbol(
     if not base:
         return base, None
 
-    candidates = [base]
-
-    if not base.endswith(".SA"):
-        candidates.append(
-            f"{base}.SA"
-        )
+    candidates = [base] if base.endswith(".SA") else [f"{base}.SA", base]
 
     last_symbol = candidates[-1]
 
@@ -992,11 +931,7 @@ def build_status_message(
             )
         )
 
-        price = (
-            price_try
-            if price_try is not None
-            else get_current_price(symbol)
-        )
+        price = price_try
 
         label = md_escape(
             asset.label
@@ -1130,17 +1065,13 @@ def build_ordens_comparison_message(
 
     for order in orders:
 
-        symbol, _ = (
-            resolve_yahoo_symbol(
-                order.ticker
-            )
-        )
-
-        price = (
-            get_daily_close(symbol)
-            if use_close
-            else get_current_price(symbol)
-        )
+        if use_close:
+            symbol = order.ticker.strip().upper()
+            if not symbol.endswith(".SA"):
+                symbol = f"{symbol}.SA"
+            price = get_daily_close(symbol)
+        else:
+            symbol, price = resolve_yahoo_symbol(order.ticker)
 
         label = md_escape(
             order.label
@@ -1281,12 +1212,12 @@ def build_opportunity_message(rule: dict, symbol: str, price: float) -> str:
         )
         if rule["category"] == "venda":
             lines.append(
-                f"DPA 12M: *{md_escape(format_money(rule['dpa_12m']))}* | "
-                f"Yield mínimo: *{rule['yield_pct']:g}%*"
+                f"DPA 12M: *{md_escape(format_money(rule['dpa_12m']))}* \\| "
+                f"Yield mínimo: *{md_escape(format(rule['yield_pct'], 'g'))}%*"
             )
         else:
             lines.append(
-                f"LPA: *{md_escape(format_money(rule['lpa']))}* | "
+                f"LPA: *{md_escape(format_money(rule['lpa']))}* \\| "
                 f"VPA: *{md_escape(format_money(rule['vpa']))}*"
             )
     lines.extend(["", md_escape(description), f"_{md_escape(rule['basis'])}_"])
@@ -1425,11 +1356,7 @@ def run_price_check(
                 )
             )
 
-            price = (
-                price_try
-                if price_try is not None
-                else get_current_price(symbol)
-            )
+            price = price_try
 
             if price is None:
 
@@ -1548,11 +1475,7 @@ def run_order_check(
                 )
             )
 
-            price = (
-                price_try
-                if price_try is not None
-                else get_current_price(symbol)
-            )
+            price = price_try
 
             if price is None:
 
