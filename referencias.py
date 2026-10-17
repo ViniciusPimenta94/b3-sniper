@@ -451,8 +451,8 @@ def avaliar_ativo(
 ) -> list[Sinal]:
     """
     Atualiza os episódios e devolve somente os sinais que ainda não foram enviados.
-    Preço justo e preço teto disparam em direção de compra (preço igual ou abaixo).
-    Desconto zero não gera alerta de teto, porque o valor é o mesmo do preço justo.
+    O preço justo é calculado para o /status e não gera alerta de compra.
+    O alerta de compra sai pelo preço teto quando o desconto é maior que zero.
     """
     ticker = str(ativo.get("ticker") or "").strip().upper()
     label = str(ativo.get("nome_amigavel") or ticker).strip() or ticker
@@ -474,26 +474,8 @@ def avaliar_ativo(
             )
             if sinal:
                 envios.append(sinal)
-        elif calculado.justo is not None:
-            dentro = preco <= calculado.justo * (1 + margem)
-            if dentro:
-                sinal = _sinal_alerta(
-                    categoria="justo",
-                    ticker=ticker,
-                    label=label,
-                    preco=preco,
-                    referencia=calculado.justo,
-                    referencia_fim=None,
-                    metodo=calculado.metodo_justo,
-                    resumo=calculado.detalhes_justo,
-                    base=calculado.base_justo,
-                    margem_pct=margem_pct if margem else 0.0,
-                    episodios=episodios,
-                )
-                if sinal:
-                    envios.append(sinal)
-            else:
-                _encerrar_categoria(episodios, "justo", ticker)
+        else:
+            _encerrar_categoria(episodios, "justo", ticker)
 
     if ativo.get("preco_teto") is not None:
         if calculado.problemas_teto:

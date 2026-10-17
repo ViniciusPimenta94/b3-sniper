@@ -176,10 +176,11 @@ class AlertasTest(unittest.TestCase):
         comum = dict(hoje=HOJE, validade_dias=45, margem_pct=0, episodios=episodios)
 
         meio = ref.avaliar_ativo(ativo, (calculado.teto + calculado.justo) / 2, **comum)
-        self.assertEqual([item.categoria for item in meio], ["justo"])
+        self.assertEqual(meio, [])
+        self.assertTrue(any("Justo" in linha for linha in ref.linhas_status(calculado)))
 
-        ambos = ref.avaliar_ativo(ativo, calculado.teto - 0.01, **comum)
-        self.assertEqual([item.categoria for item in ambos], ["teto"])
+        no_teto = ref.avaliar_ativo(ativo, calculado.teto, **comum)
+        self.assertEqual([item.categoria for item in no_teto], ["teto"])
 
         repetido = ref.avaliar_ativo(ativo, calculado.teto - 0.01, **comum)
         self.assertEqual(repetido, [])
@@ -189,7 +190,7 @@ class AlertasTest(unittest.TestCase):
         self.assertFalse(any(chave.startswith("alerta|") for chave in episodios))
 
         de_novo = ref.avaliar_ativo(ativo, calculado.teto - 0.01, **comum)
-        self.assertEqual(sorted(item.categoria for item in de_novo), ["justo", "teto"])
+        self.assertEqual([item.categoria for item in de_novo], ["teto"])
 
     def test_desconto_zero_nao_duplica_alerta(self):
         episodios: set[str] = set()
@@ -201,8 +202,10 @@ class AlertasTest(unittest.TestCase):
             margem_pct=0,
             episodios=episodios,
         )
-        self.assertEqual([item.categoria for item in sinais], ["justo"])
-        self.assertFalse(any("|teto|" in chave for chave in episodios))
+        self.assertEqual(sinais, [])
+        self.assertFalse(any("|justo|" in chave or "|teto|" in chave for chave in episodios))
+        linhas = ref.linhas_status(ref.calcular_referencias(_ativo_graham(), HOJE, 45))
+        self.assertTrue(any(linha.startswith("Justo (") for linha in linhas))
 
     def test_transicao_de_faixa_e_margem(self):
         ativo = {
@@ -224,21 +227,20 @@ class AlertasTest(unittest.TestCase):
         self.assertEqual([item.categoria for item in retorno], ["faixa"])
 
         com_margem = _ativo_graham()
-        com_margem["preco_teto"] = None
-        justo = ref.calcular_referencias(com_margem, HOJE, 45).justo
-        episodios_margem: set[str] = set()
+        com_margem["preco_teto"] = {"metodo": "desconto_sobre_justo", "desconto_pct": 0.25}
+        calculado_margem = ref.calcular_referencias(com_margem, HOJE, 45)
         sinais = ref.avaliar_ativo(
             com_margem,
-            justo * 1.10,
+            calculado_margem.teto * 1.10,
             hoje=HOJE,
             validade_dias=45,
             margem_pct=10,
-            episodios=episodios_margem,
+            episodios=set(),
         )
-        self.assertEqual(len(sinais), 1)
+        self.assertEqual([item.categoria for item in sinais], ["teto"])
         fora = ref.avaliar_ativo(
             com_margem,
-            justo * 1.10 + 0.01,
+            calculado_margem.teto * 1.10 + 0.01,
             hoje=HOJE,
             validade_dias=45,
             margem_pct=10,
@@ -256,8 +258,9 @@ class AlertasTest(unittest.TestCase):
         self.assertEqual(ref.avaliar_ativo(ativo, 10, **comum), [])
 
         ativo["preco_justo"] = _graham()
+        ativo["preco_teto"] = {"metodo": "desconto_sobre_justo", "desconto_pct": 0.25}
         corrigido = ref.avaliar_ativo(ativo, 10, **comum)
-        self.assertEqual(corrigido[0].tipo, "alerta")
+        self.assertEqual([(item.tipo, item.categoria) for item in corrigido], [("alerta", "teto")])
         self.assertFalse(any(chave.startswith("pendencia|") for chave in episodios))
 
     def test_faixa_independente_de_justo_invalido(self):
@@ -366,6 +369,12 @@ class PersistenciaEArquivoTest(unittest.TestCase):
         self.assertEqual(bbse["metodo"], "bazin")
         self.assertEqual(bbse["yield_alvo"], 0.08)
         self.assertEqual(bbse["dividendos_12m"], 4.5901)
+        self.assertEqual(por_ticker["BBSE3.SA"]["preco_teto"]["desconto_pct"], 0.15)
+        self.assertEqual(por_ticker["TIMS3.SA"]["preco_teto"]["desconto_pct"], 0.15)
+        for ticker in ("ITUB4.SA", "TAEE11.SA", "TOTS3.SA", "SBSP3.SA", "CMIG4.SA"):
+            self.assertEqual(por_ticker[ticker]["preco_teto"]["desconto_pct"], 0.25)
+        for ticker in ("VISC11.SA", "XPLG11.SA", "PVBI11.SA", "BTHF11.SA", "CPTS11.SA"):
+            self.assertEqual(por_ticker[ticker]["preco_teto"]["desconto_pct"], 0)
 
         tims = por_ticker["TIMS3.SA"]["preco_justo"]
         self.assertEqual(tims["metodo"], "bazin")
@@ -469,10 +478,16 @@ class CorrecoesFinaisTest(unittest.TestCase):
         self.assertEqual(tims["preco_justo"]["metodo"], "bazin")
         calculado = ref.calcular_referencias(tims, HOJE, 45)
         self.assertAlmostEqual(calculado.justo, 1.4723 / 0.06)
-        abaixo = ref.avaliar_ativo(
+        self.assertAlmostEqual(calculado.teto, calculado.justo * 0.85)
+        self.assertTrue(any(linha.startswith("Justo (") for linha in ref.linhas_status(calculado)))
+        no_justo = ref.avaliar_ativo(
             tims, calculado.justo, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
         )
-        self.assertEqual([(item.tipo, item.categoria) for item in abaixo], [("alerta", "justo")])
+        self.assertEqual(no_justo, [])
+        no_teto = ref.avaliar_ativo(
+            tims, calculado.teto, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
+        )
+        self.assertEqual([(item.tipo, item.categoria) for item in no_teto], [("alerta", "teto")])
         acima = ref.avaliar_ativo(
             tims,
             calculado.justo + 0.01,
@@ -491,12 +506,18 @@ class CorrecoesFinaisTest(unittest.TestCase):
 
     def test_compra_e_faixa_nos_limites(self):
         compra = _ativo_graham()
-        compra["preco_teto"] = None
-        justo = ref.calcular_referencias(compra, HOJE, 45).justo
-        sinais = ref.avaliar_ativo(
-            compra, justo, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
+        compra["preco_teto"] = {"metodo": "desconto_sobre_justo", "desconto_pct": 0.25}
+        calculado = ref.calcular_referencias(compra, HOJE, 45)
+        self.assertAlmostEqual(calculado.teto, calculado.justo * 0.75)
+        self.assertTrue(any(linha.startswith("Justo (") for linha in ref.linhas_status(calculado)))
+        entre = ref.avaliar_ativo(
+            compra, calculado.teto + 0.01, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
         )
-        self.assertEqual([(item.tipo, item.categoria) for item in sinais], [("alerta", "justo")])
+        self.assertEqual(entre, [])
+        sinais = ref.avaliar_ativo(
+            compra, calculado.teto, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
+        )
+        self.assertEqual([(item.tipo, item.categoria) for item in sinais], [("alerta", "teto")])
 
         faixa = {
             "ticker": "B3SA3.SA",

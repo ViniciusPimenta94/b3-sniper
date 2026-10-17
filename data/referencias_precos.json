@@ -42,7 +42,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.15
       },
       "faixa": null
     },
@@ -58,7 +58,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.25
       },
       "faixa": null
     },
@@ -74,7 +74,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.25
       },
       "faixa": null
     },
@@ -178,7 +178,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.25
       },
       "faixa": null
     },
@@ -194,7 +194,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.15
       },
       "faixa": null
     },
@@ -210,7 +210,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.25
       },
       "faixa": null
     },
@@ -226,7 +226,7 @@
       },
       "preco_teto": {
         "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
+        "desconto_pct": 0.25
       },
       "faixa": null
     },

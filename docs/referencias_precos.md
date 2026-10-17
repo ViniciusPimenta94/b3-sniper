@@ -8,7 +8,7 @@ Cada ativo pode ter três referências independentes:
 - **Preço teto:** desconto sobre o preço justo, ou máxima de 52 semanas.
 - **Faixa:** mínimo e máximo informados.
 
-O alerta de justo e o alerta de teto disparam quando o preço fica igual ou abaixo da referência. A faixa dispara quando o preço está dentro do intervalo. Desconto `0` não gera alerta de teto, porque o valor é igual ao preço justo.
+O preço justo continua calculado e aparece no `/status`, mas não gera alerta de compra. Para quem tem preço justo, o alerta de compra sai só quando o preço teto é válido e o desconto é maior que zero, com o preço igual ou abaixo do teto. A faixa dispara quando o preço está dentro do intervalo. Desconto `0` não gera alerta de compra.
 
 ## Preenchimento
 
@@ -53,19 +53,18 @@ Fundamentos de Graham, Bazin, manual e FII são editados no JSON. O script não 
 
 ## Alertas
 
-O preço teto é o limite para uma possível compra. Os alertas de preço são de compra, quando o preço fica igual ou abaixo do justo ou do teto, e de faixa, quando o preço está dentro do intervalo. Compra e faixa são independentes.
+O preço teto é o limite de compra. A faixa continua independente. As ordens de `ordens.json` também continuam independentes deste cálculo.
 
-- TIMS3 tem somente alerta de compra pelo método Bazin, com yield `0,06` e dividendos `1,4723`.
-- TAEE11 usa Graham, com LPA `4,72` e VPA `23,43`.
-- BBSE3 usa Bazin, com yield `0,08` e dividendos `4,5901`.
-- Itaú, TOTVS, Sabesp e Cemig usam Graham com os fundamentos de 14/10/2026.
+- BBSE3 e TIMS3 usam Bazin com desconto de `0,15`. O alerta de compra fica em 85% do preço justo. TIMS3 tem yield `0,06` e dividendos `1,4723`. BBSE3 tem yield `0,08` e dividendos `4,5901`.
+- ITUB4, TAEE11, TOTS3, SBSP3 e CMIG4 usam Graham com desconto de `0,25`. O alerta de compra fica em 75% do preço justo. TAEE11 tem LPA `4,72` e VPA `23,43`. Itaú, TOTVS, Sabesp e Cemig usam os fundamentos de 14/10/2026.
+- Os cinco FIIs permanecem com desconto `0` até a classificação de cada um. Com esse desconto, não há alerta de compra pelo preço justo.
 - WEG, IVVB11 e WRLD11 usam a máxima de 52 semanas, com desconto `0,05`. As máximas registradas são IVVB11 `458,10`, WRLD11 `153,37` e WEGE3 `53,83`, com origem `Status Invest` e data da cotação `2026-10-16`.
 - Os FIIs usam `fii_vp`. Os VPAs registrados são VISC11 `115,60`, XPLG11 `105,03`, PVBI11 `104,53`, BTHF11 `9,86` e CPTS11 `8,65`, com origem `Status Invest` e data de consulta `2026-10-16`.
 - As faixas de B3, Cyrela, C&A, Banco do Brasil e Petrobras foram copiadas sem mudança.
 
 ## Deduplicação
 
-O episódio ativo fica em memória e em `data/alertas_estado.json`. O mesmo gatilho não é reenviado enquanto o preço permanecer na condição. Ao sair, a chave é removida e uma nova entrada pode alertar de novo. Justo e teto só disparam juntos quando o desconto é maior que zero e os dois limites são diferentes.
+O episódio ativo fica em memória e em `data/alertas_estado.json`. O mesmo gatilho não é reenviado enquanto o preço permanecer na condição. Ao sair, a chave é removida e uma nova entrada pode alertar de novo. O preço justo não entra nesse alerta de compra.
 
 A chave da pendência guarda a natureza do problema e omite a idade em dias. A mesma pendência continua deduplicada no dia seguinte. Uma pendência de outra natureza, como data ausente que passa a ser LPA inválido, gera um aviso novo. Uma chave gravada antes desta correção, ainda com a idade no texto, não coincide com a chave nova: o aviso daquela pendência pode sair uma vez depois da atualização.
 
