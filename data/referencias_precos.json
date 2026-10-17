@@ -1,0 +1,284 @@
+{
+  "versao": 1,
+  "comment": "Preço justo (Graham, Bazin, manual ou FII), preço teto (desconto sobre o justo ou máxima de 52 semanas) e faixa personalizada. Fundamentos consultados em 14/10/2026 no Fundamentus: LPA trailing 12 meses; VPA do 2T26; proventos brutos de 12 meses, incluindo JCP. Yield em fração (0,08 = 8%). Desconto em fração (0,05 = 5%). Validade contada a partir da data informada.",
+  "validade_dias": 45,
+  "margem_proximidade_pct": 0,
+  "ativos": [
+    {
+      "ticker": "IVVB11.SA",
+      "nome_amigavel": "S&P 500 ETF",
+      "preco_justo": null,
+      "preco_teto": {
+        "metodo": "max_52_semanas",
+        "desconto_pct": 0.05,
+        "maxima_52s": 458.10,
+        "data_cotacao": "2026-10-16",
+        "origem": "Status Invest"
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "WRLD11.SA",
+      "nome_amigavel": "Global Stocks ETF",
+      "preco_justo": null,
+      "preco_teto": {
+        "metodo": "max_52_semanas",
+        "desconto_pct": 0.05,
+        "maxima_52s": 153.37,
+        "data_cotacao": "2026-10-16",
+        "origem": "Status Invest"
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "BBSE3.SA",
+      "nome_amigavel": "BB Seguridade",
+      "preco_justo": {
+        "metodo": "bazin",
+        "dividendos_12m": 4.5901,
+        "yield_alvo": 0.08,
+        "origem": "Fundamentus (proventos brutos em 12 meses, incluindo JCP)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "ITUB4.SA",
+      "nome_amigavel": "Itaú Unibanco",
+      "preco_justo": {
+        "metodo": "graham",
+        "lpa": 4.23,
+        "vpa": 18.83,
+        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "TAEE11.SA",
+      "nome_amigavel": "Taesa",
+      "preco_justo": {
+        "metodo": "graham",
+        "lpa": 4.72,
+        "vpa": 23.43,
+        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "WEGE3.SA",
+      "nome_amigavel": "WEG",
+      "preco_justo": null,
+      "preco_teto": {
+        "metodo": "max_52_semanas",
+        "desconto_pct": 0.05,
+        "maxima_52s": 53.83,
+        "data_cotacao": "2026-10-16",
+        "origem": "Status Invest"
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "VISC11.SA",
+      "nome_amigavel": "Vinci Shopping",
+      "preco_justo": {
+        "metodo": "fii_vp",
+        "vpa": 115.60,
+        "origem": "Status Invest",
+        "data_fundamentos": "2026-10-16"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "XPLG11.SA",
+      "nome_amigavel": "XP Logística",
+      "preco_justo": {
+        "metodo": "fii_vp",
+        "vpa": 105.03,
+        "origem": "Status Invest",
+        "data_fundamentos": "2026-10-16"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "PVBI11.SA",
+      "nome_amigavel": "VBI Prime Offices",
+      "preco_justo": {
+        "metodo": "fii_vp",
+        "vpa": 104.53,
+        "origem": "Status Invest",
+        "data_fundamentos": "2026-10-16"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "BTHF11.SA",
+      "nome_amigavel": "BTG Pactual Hedge Fund",
+      "preco_justo": {
+        "metodo": "fii_vp",
+        "vpa": 9.86,
+        "origem": "Status Invest",
+        "data_fundamentos": "2026-10-16"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "CPTS11.SA",
+      "nome_amigavel": "Capitania Securities II",
+      "preco_justo": {
+        "metodo": "fii_vp",
+        "vpa": 8.65,
+        "origem": "Status Invest",
+        "data_fundamentos": "2026-10-16"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "TOTS3.SA",
+      "nome_amigavel": "TOTVS",
+      "preco_justo": {
+        "metodo": "graham",
+        "lpa": 2.46,
+        "vpa": 9.42,
+        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "TIMS3.SA",
+      "nome_amigavel": "TIM Brasil",
+      "preco_justo": {
+        "metodo": "bazin",
+        "dividendos_12m": 1.4723,
+        "yield_alvo": 0.06,
+        "origem": "Fundamentus (proventos brutos em 12 meses, incluindo JCP)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "SBSP3.SA",
+      "nome_amigavel": "Sabesp",
+      "preco_justo": {
+        "metodo": "graham",
+        "lpa": 2.28,
+        "vpa": 12.82,
+        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "CMIG4.SA",
+      "nome_amigavel": "Cemig",
+      "preco_justo": {
+        "metodo": "graham",
+        "lpa": 1.61,
+        "vpa": 10.2,
+        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
+        "data_fundamentos": "2026-10-14"
+      },
+      "preco_teto": {
+        "metodo": "desconto_sobre_justo",
+        "desconto_pct": 0
+      },
+      "faixa": null
+    },
+    {
+      "ticker": "B3SA3.SA",
+      "nome_amigavel": "B3",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 19,
+        "preco_maximo": 20.5
+      }
+    },
+    {
+      "ticker": "CYRE3.SA",
+      "nome_amigavel": "Cyrela",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 29,
+        "preco_maximo": 32
+      }
+    },
+    {
+      "ticker": "CEAB3.SA",
+      "nome_amigavel": "C&A",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 11,
+        "preco_maximo": 12
+      }
+    },
+    {
+      "ticker": "BBAS3.SA",
+      "nome_amigavel": "Banco do Brasil",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 20,
+        "preco_maximo": 22
+      }
+    },
+    {
+      "ticker": "PETR4.SA",
+      "nome_amigavel": "Petrobras PN",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 47,
+        "preco_maximo": 51
+      }
+    }
+  ]
+}

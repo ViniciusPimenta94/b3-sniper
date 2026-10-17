@@ -1,5 +1,7 @@
 # Secrets e config local
 config.local.json
+data/alertas_estado.json
+data/*.tmp
 .env
 .env.*
 

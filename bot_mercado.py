@@ -3,7 +3,7 @@ B3 Sniper
 Bot Telegram para monitoramento de oportunidades e ordens na B3.
 
 Funcionalidades:
-- Monitoramento de preço teto dos ativos
+- Monitoramento de preço justo, preço teto e faixa
 - Monitoramento de ordens de compra
 - Alertas via Telegram
 - Comando /status
@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import calendar
 import logging
-import math
 import os
 import threading
 import time
@@ -51,6 +50,8 @@ import schedule
 import telebot
 import yfinance as yf
 from flask import Flask
+
+import referencias
 
 
 # ===========================================================================
@@ -163,17 +164,6 @@ def load_config() -> dict:
 
     with open(config_file, encoding="utf-8") as f:
         config = json.load(f)
-
-    # Mescla os alertas padrão do arquivo versionado na configuração local,
-    # preservando todos os valores preenchidos localmente.
-    if config_file != CONFIG_PATH and CONFIG_PATH.is_file():
-        with open(CONFIG_PATH, encoding="utf-8") as f:
-            defaults = json.load(f).get("opportunity_alerts", {})
-        configured = config.get("opportunity_alerts") or {}
-        merged = {**defaults, **configured}
-        for category in ("venda", "compra", "analise"):
-            merged.setdefault(category, defaults.get(category, []))
-        config["opportunity_alerts"] = merged
 
     # Garante que a seção telegram exista
     if "telegram" not in config:
@@ -368,7 +358,8 @@ def parse_assets(
     cfg: dict,
 ) -> list[AssetConfig]:
     """
-    Carrega os ativos configurados.
+    Lê a lista legada de config.json.
+    Os alertas de preço usam data/referencias_precos.json.
     """
 
     raw = cfg.get("assets") or []
@@ -424,68 +415,70 @@ def parse_assets(
     return out
 
 
-def parse_opportunity_rules(cfg: dict) -> list[dict]:
-    """Carrega regras configuradas para os três tipos de oportunidade."""
-    section = cfg.get("opportunity_alerts") or {}
-    rules: list[dict] = []
-
-    categories = ("venda", "compra", "analise")
-
-    try:
-        margin_value = float(section.get("margem_proximidade_pct", 0))
-        margin = max(0.0, margin_value) / 100 if math.isfinite(margin_value) else 0.0
-    except (TypeError, ValueError):
-        margin = 0.0
-        log.warning("Margem de proximidade inválida; usando 0%%.")
-
-    for category in categories:
-        entries = section.get(category) or []
-        if not isinstance(entries, list):
-            log.warning("A lista de oportunidade '%s' deve ser uma lista.", category)
-            continue
-
-        for item in entries:
-            if not isinstance(item, dict):
-                continue
-            ticker = str(item.get("ticker", "")).strip()
-            if not ticker:
-                log.warning("Regra de oportunidade sem ticker ignorada: %s", item)
-                continue
-
-            rule = {"category": category, "ticker": ticker,
-                    "label": str(item.get("nome_amigavel") or ticker).strip(),
-                    "margin": margin, "configured": item}
-            try:
-                if category == "venda":
-                    yield_pct = float(item.get("dividend_yield_minimo_pct", 6))
-                    if yield_pct <= 0 or not math.isfinite(yield_pct):
-                        raise ValueError("yield mínimo deve ser positivo")
-                    rule["yield_pct"] = yield_pct
-                elif category == "compra":
-                    # LPA e VPA são preenchidos manualmente em opportunity_alerts.
-                    pass
-                else:
-                    low, high = float(item["preco_minimo"]), float(item["preco_maximo"])
-                    if low < 0 or high < low:
-                        raise ValueError("Faixa de preço inválida")
-                    rule["low"], rule["high"] = low, high
-                    rule["basis"] = "Faixa de preço configurada"
-            except (KeyError, TypeError, ValueError) as exc:
-                log.warning("Regra de oportunidade inválida (%s): %s", ticker, exc)
-                continue
-            rules.append(rule)
-
-    return rules
+def _rotulo_metodo(metodo: str | None) -> str:
+    nomes = {
+        "graham": "Graham",
+        "bazin": "Bazin",
+        "manual": "Manual",
+        "fii_vp": "FII (P/VP = 1)",
+        "desconto_sobre_justo": "Desconto sobre o preço justo",
+        "max_52_semanas": "Máxima de 52 semanas",
+        "faixa": "Faixa personalizada",
+    }
+    return nomes.get(metodo or "", metodo or "referência")
 
 
-def _valid_positive_number(value) -> float | None:
-    try:
-        number = float(value)
-        if number > 0 and math.isfinite(number):
-            return number
-    except (TypeError, ValueError):
-        pass
-    return None
+def _nome_categoria(categoria: str) -> str:
+    return {"justo": "preço justo", "teto": "preço teto", "faixa": "faixa"}.get(categoria, categoria)
+
+
+def build_signal_message(sinal: referencias.Sinal, symbol: str) -> tuple[str, str | None]:
+    """Monta alerta ou pendência. Pendência vai em texto simples."""
+    if sinal.tipo == "pendencia":
+        return (
+            f"⚠️ Referência de {_nome_categoria(sinal.categoria)} não calculada\n\n"
+            f"Ativo: {sinal.label} ({display_ticker(symbol)})\n"
+            f"Preço atual: {format_money(sinal.preco)}\n"
+            f"Pendências: {'; '.join(sinal.pendencias)}\n\n"
+            "Nenhum alerta de preço foi emitido para esta referência."
+        ), None
+
+    titulos = {
+        "justo": "📉 Alerta de preço justo",
+        "teto": "🎯 Alerta de preço teto",
+        "faixa": "🔎 Alerta de faixa de análise",
+    }
+    titulo = titulos.get(sinal.categoria, "Alerta de referência")
+    linhas = [
+        f"*{md_escape(titulo)}*",
+        "",
+        f"*{md_escape(sinal.label)}* \\({md_escape(display_ticker(symbol))}\\)",
+        "",
+        f"Preço atual: *{md_escape(format_money(sinal.preco))}*",
+    ]
+    if sinal.categoria == "faixa" and sinal.referencia is not None and sinal.referencia_fim is not None:
+        linhas.append(
+            "Faixa configurada: "
+            f"*{md_escape(format_money(sinal.referencia))} a "
+            f"{md_escape(format_money(sinal.referencia_fim))}*"
+        )
+        descricao = "O preço atual está dentro da faixa definida."
+    else:
+        rotulo = "Preço justo" if sinal.categoria == "justo" else "Preço teto"
+        linhas.append(
+            f"{md_escape(rotulo)}: *{md_escape(format_money(sinal.referencia or 0))}*"
+        )
+        linhas.append(f"Método: *{md_escape(_rotulo_metodo(sinal.metodo))}*")
+        if sinal.resumo:
+            linhas.append(md_escape(sinal.resumo))
+        if sinal.margem_pct > 0:
+            descricao = "O preço está próximo ou abaixo da referência."
+        else:
+            descricao = "O preço está igual ou abaixo da referência."
+    linhas.extend(["", md_escape(descricao)])
+    if sinal.base:
+        linhas.append(f"_{md_escape(sinal.base)}_")
+    return "\n".join(linhas), "MarkdownV2"
 
 
 # ===========================================================================
@@ -905,129 +898,56 @@ def is_trading_window(
 # MENSAGENS TELEGRAM
 # ===========================================================================
 
-def build_status_message(
-    cfg: dict,
-    assets: list[AssetConfig],
-) -> str:
-    """
-    Monta mensagem do comando /status.
-    """
+def _bloco_status(ativo: dict, hoje, validade_dias: int) -> str:
+    ticker = str(ativo.get("ticker") or "")
+    symbol, price = resolve_yahoo_symbol(ticker)
+    calculado = referencias.calcular_referencias(ativo, hoje, validade_dias)
+    label = md_escape(str(ativo.get("nome_amigavel") or ticker))
+    symbol_display = md_escape(display_ticker(symbol))
+    lines = [f"*{label}* \\({symbol_display}\\)"]
 
-    lines = [
-        "*📊 Status dos ativos*",
-        "",
-        (
-            f"_Atualizado: "
-            f"{md_escape(datetime.now(TZ_BRASILIA).strftime('%d/%m/%Y %H:%M'))}_"
-        ),
-        "",
-    ]
+    if price is None:
+        lines.append("⚠️ Preço indisponível no momento\\.")
+    else:
+        lines.append(f"• Atual: *{md_escape(format_money(price))}*")
 
-    for asset in assets:
-
-        symbol, price_try = (
-            resolve_yahoo_symbol(
-                asset.ticker
-            )
-        )
-
-        price = price_try
-
-        label = md_escape(
-            asset.label
-        )
-
-        symbol_display = md_escape(
-            display_ticker(symbol)
-        )
-
-        # -------------------------------------------------------------------
-        # PREÇO INDISPONÍVEL
-        # -------------------------------------------------------------------
-
-        if price is None:
-
-            lines.append(
-                f"*{label}* "
-                f"\\({symbol_display}\\)"
-            )
-
-            lines.append(
-                "⚠️ Preço indisponível no momento\\."
-            )
-
-            lines.append("")
-
-            continue
-
-        teto = asset.preco_teto
-
-        # -------------------------------------------------------------------
-        # SITUAÇÃO
-        # -------------------------------------------------------------------
-
-        if price > teto:
-
-            emoji = "📈"
-
-            situacao = (
-                "Acima do preço teto"
-            )
-
-        elif price == teto:
-
-            emoji = "🎯"
-
-            situacao = (
-                "No preço teto"
-            )
-
+    for linha in referencias.linhas_status(calculado):
+        if linha.startswith("Pendência"):
+            lines.append(f"• _{md_escape(linha)}_")
         else:
+            lines.append(f"• {md_escape(linha)}")
 
-            emoji = "🚨"
+    return "\n".join(lines)
 
-            situacao = (
-                "Abaixo do preço teto"
-            )
 
-        # -------------------------------------------------------------------
-        # DIFERENÇA
-        # -------------------------------------------------------------------
-
-        diff_pct = (
-            (price / teto - 1)
-            * 100
-        ) if teto > 0 else 0
-
-        lines.append(
-            f"{emoji} *{label}* "
-            f"\\({symbol_display}\\)"
+def build_status_messages(dados: dict) -> list[str]:
+    """Monta o /status a partir das referências, em partes abaixo do limite do Telegram."""
+    hoje = referencias.hoje_brasilia()
+    validade = int(dados["validade_dias"])
+    blocos = [
+        "\n".join(
+            [
+                "*📊 Status dos ativos*",
+                "",
+                f"_Atualizado: {md_escape(datetime.now(TZ_BRASILIA).strftime('%d/%m/%Y %H:%M'))}_",
+            ]
         )
+    ]
+    for ativo in dados.get("ativos") or []:
+        if isinstance(ativo, dict) and ativo.get("ticker"):
+            blocos.append(_bloco_status(ativo, hoje, validade))
 
-        lines.append(
-            f"• Atual: "
-            f"*{md_escape(format_money(price))}*"
-        )
-
-        lines.append(
-            f"• Teto: "
-            f"*{md_escape(format_money(teto))}*"
-        )
-
-        lines.append(
-            f"• Diferença: "
-            f"*{md_escape(format_pct(diff_pct))}*"
-        )
-
-        lines.append(
-            f"• _{md_escape(situacao)}_"
-        )
-
-        lines.append("")
-
-    return "\n".join(
-        lines
-    ).rstrip()
+    mensagens: list[str] = []
+    atual = ""
+    for bloco in blocos:
+        if atual and len(atual) + len(bloco) + 2 > 3500:
+            mensagens.append(atual.strip())
+            atual = bloco
+        else:
+            atual = f"{atual}\n\n{bloco}" if atual else bloco
+    if atual.strip():
+        mensagens.append(atual.strip())
+    return mensagens or ["Nenhuma referência cadastrada\\."]
 
 
 def build_ordens_comparison_message(
@@ -1187,95 +1107,17 @@ def build_order_alert_message(
     )
 
 
-def build_opportunity_message(rule: dict, symbol: str, price: float) -> str:
-    """Monta um alerta específico de venda, compra ou análise."""
-    labels = {
-        "venda": ("📈 Alerta de oportunidade de venda", "Preço teto", "O preço está próximo ou acima do preço teto."),
-        "compra": ("📉 Alerta de oportunidade de compra", "Preço justo", "O preço está próximo ou abaixo do preço justo."),
-        "analise": ("🔎 Alerta de oportunidade de análise", "Faixa configurada", "O preço atual está dentro da faixa definida."),
-    }
-    title, reference_label, description = labels[rule["category"]]
-    label = md_escape(rule["label"])
-    symbol_display = md_escape(display_ticker(symbol))
-    lines = [
-        f"*{title}*", "", f"*{label}* \\({symbol_display}\\)", "",
-        f"Preço atual: *{md_escape(format_money(price))}*",
-    ]
-    if rule["category"] == "analise":
-        lines.append(
-            f"{reference_label}: *{md_escape(format_money(rule['low']))} a "
-            f"{md_escape(format_money(rule['high']))}*"
-        )
-    else:
-        lines.append(
-            f"{reference_label}: *{md_escape(format_money(rule['target']))}*"
-        )
-        if rule["category"] == "venda":
-            lines.append(
-                f"DPA 12M: *{md_escape(format_money(rule['dpa_12m']))}* \\| "
-                f"Yield mínimo: *{md_escape(format(rule['yield_pct'], 'g'))}%*"
-            )
-        else:
-            lines.append(
-                f"LPA: *{md_escape(format_money(rule['lpa']))}* \\| "
-                f"VPA: *{md_escape(format_money(rule['vpa']))}*"
-            )
-    lines.extend(["", md_escape(description), f"_{md_escape(rule['basis'])}_"])
-    return "\n".join(lines)
-
-
-def build_missing_fundamentals_message(rule: dict, symbol: str, price: float, missing: list[str]) -> str:
-    """Informa que os dados faltantes impediram avaliar a oportunidade."""
-    category = "venda" if rule["category"] == "venda" else "compra"
-    return (
-        f"⚠️ Alerta de oportunidade de {category} não calculado\n\n"
-        f"Ativo: {rule['label']} ({display_ticker(symbol)})\n"
-        f"Preço atual: {format_money(price)}\n"
-        f"Dados ausentes ou inválidos: {', '.join(missing)}\n\n"
-        "O limite não foi calculado e nenhum sinal de compra/venda foi emitido."
-    )
-
-
 # ===========================================================================
 # CONTROLE DE ALERTAS
 # ===========================================================================
 
 _alert_episode_keys: set[str] = set()
+_alert_lock = threading.Lock()
 
 _order_alert_episode_keys: set[str] = set()
 
 _eod_summary_sent_date: str | None = None
 _fundamentals_reminder_sent_month: str | None = None
-
-
-def _missing_fundamentals_key(category: str, symbol: str) -> str:
-    return f"dados_pendentes|{category}|{symbol}"
-
-
-def _clear_missing_fundamentals_alert(category: str, symbol: str) -> None:
-    _alert_episode_keys.discard(_missing_fundamentals_key(category, symbol))
-
-
-def _send_missing_fundamentals_alert(
-    bot: telebot.TeleBot,
-    chat_id: str,
-    rule: dict,
-    symbol: str,
-    price: float,
-    missing: list[str],
-) -> None:
-    key = _missing_fundamentals_key(rule["category"], symbol)
-    if key in _alert_episode_keys:
-        return
-    try:
-        bot.send_message(
-            chat_id,
-            build_missing_fundamentals_message(rule, symbol, price, missing),
-        )
-        _alert_episode_keys.add(key)
-        log.warning("Aviso enviado; fundamentos indisponíveis para %s: %s", symbol, missing)
-    except Exception as exc:
-        log.exception("Falha ao avisar fundamentos ausentes de %s: %s", symbol, exc)
 
 
 def run_telegram_polling(bot: telebot.TeleBot) -> None:
@@ -1320,18 +1162,8 @@ def run_price_check(
     bot: telebot.TeleBot,
     chat_id: str,
     cfg: dict,
-    assets: list[AssetConfig],
 ) -> None:
-    """
-    Verifica os alertas de oportunidade de venda, compra e análise.
-    A lista `assets` permanece no parâmetro por compatibilidade com a chamada
-    atual; os alertas são definidos exclusivamente em opportunity_alerts.
-    """
-
-    rules = parse_opportunity_rules(cfg)
-    if not rules:
-        log.info("Nenhuma regra de alerta de oportunidade configurada.")
-        return
+    """Verifica preço justo, preço teto e faixa cadastrados nas referências."""
 
     if not is_trading_window(cfg):
 
@@ -1342,96 +1174,62 @@ def run_price_check(
 
         return
 
-    for rule in rules:
+    try:
+        dados = referencias.carregar_referencias()
+    except Exception as exc:
+        log.exception("Não foi possível carregar as referências de preço: %s", exc)
+        return
 
-        try:
+    ativos = [item for item in dados.get("ativos") or [] if isinstance(item, dict)]
+    if not ativos:
+        log.info("Nenhuma referência de preço cadastrada.")
+        return
 
-            # ---------------------------------------------------------------
-            # PREÇO
-            # ---------------------------------------------------------------
+    hoje = referencias.hoje_brasilia()
+    pendentes = []
 
-            symbol, price_try = (
-                resolve_yahoo_symbol(
-                    rule["ticker"]
-                )
-            )
-
-            price = price_try
-
-            if price is None:
-
-                log.warning(
-                    "Não foi possível obter preço para %s "
-                    "(resolvido: %s)",
-                    rule["ticker"],
-                    symbol,
-                )
-
-                continue
-
-            category = rule["category"]
-            if category == "venda":
-                configured_dpa = rule["configured"].get("dpa_12m")
-                dpa = _valid_positive_number(configured_dpa)
-                missing = [] if dpa is not None else ["DPA 12M (campo dpa_12m na configuração)"]
-                if missing:
-                    _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
-                    continue
-                _clear_missing_fundamentals_alert(category, symbol)
-                rule["dpa_12m"] = dpa
-                target = dpa / (rule["yield_pct"] / 100)
-                rule["target"] = target
-                rule["basis"] = f"Preço teto = DPA 12M / yield mínimo de {rule['yield_pct']:g}%"
-                active = price >= target * (1 - rule["margin"])
-                reference_key = f"{target:.8f}"
-            elif category == "compra":
-                configured = rule["configured"]
-                lpa = _valid_positive_number(configured.get("lpa"))
-                vpa = _valid_positive_number(configured.get("vpa"))
-                missing = []
-                if lpa is None:
-                    missing.append("LPA (campo lpa na configuração)")
-                if vpa is None:
-                    missing.append("VPA (campo vpa na configuração)")
-                if missing:
-                    _send_missing_fundamentals_alert(bot, chat_id, rule, symbol, price, missing)
-                    continue
-                _clear_missing_fundamentals_alert(category, symbol)
-                rule["lpa"], rule["vpa"] = lpa, vpa
-                target = (22.5 * lpa * vpa) ** 0.5
-                rule["target"] = target
-                rule["basis"] = "Preço justo = √(22,5 × LPA × VPA)"
-                active = price <= target * (1 + rule["margin"])
-                reference_key = f"{target:.8f}"
-            else:
-                active = rule["low"] <= price <= rule["high"]
-                reference_key = f"{rule['low']:.8f}:{rule['high']:.8f}"
-
-            key = f"{category}|{symbol}|{reference_key}"
-            if active:
-                if key in _alert_episode_keys:
-                    log.info("ℹ️ Alerta %s já enviado: %s", category, symbol)
-                    continue
-                try:
-                    bot.send_message(
-                        chat_id,
-                        build_opportunity_message(rule, symbol, price),
-                        parse_mode="MarkdownV2",
+    with _alert_lock:
+        for ativo in ativos:
+            ticker = str(ativo.get("ticker") or "")
+            try:
+                symbol, price = resolve_yahoo_symbol(ticker)
+                if price is None:
+                    log.warning(
+                        "Não foi possível obter preço para %s (resolvido: %s)",
+                        ticker,
+                        symbol,
                     )
-                    _alert_episode_keys.add(key)
-                    log.info("🚨 Alerta de %s enviado: %s @ %.2f", category, symbol, price)
-                except Exception as e:
-                    log.exception("Falha ao enviar alerta Telegram: %s", e)
+                    continue
+                sinais = referencias.avaliar_ativo(
+                    ativo,
+                    price,
+                    hoje=hoje,
+                    validade_dias=int(dados["validade_dias"]),
+                    margem_pct=float(dados["margem_proximidade_pct"]),
+                    episodios=_alert_episode_keys,
+                )
+                pendentes.extend((sinal, symbol, price) for sinal in sinais)
+            except Exception as exc:
+                log.exception("Erro ao processar referência %s: %s", ticker, exc)
+
+    for sinal, symbol, price in pendentes:
+        texto, modo = build_signal_message(sinal, symbol)
+        try:
+            bot.send_message(chat_id, texto, parse_mode=modo)
+            if sinal.tipo == "alerta":
+                log.info("🚨 Alerta de %s enviado: %s @ %.2f", sinal.categoria, symbol, price)
             else:
-                _alert_episode_keys.discard(key)
+                log.warning("Aviso de referência incompleta enviado: %s (%s)", symbol, sinal.categoria)
+        except Exception as exc:
+            with _alert_lock:
+                _alert_episode_keys.discard(sinal.chave)
+            log.exception("Falha ao enviar alerta Telegram: %s", exc)
 
-        except Exception as e:
-
-            log.exception(
-                "Erro ao processar regra %s: %s",
-                rule.get("ticker", "?"),
-                e,
-            )
+    with _alert_lock:
+        try:
+            referencias.salvar_episodios(_alert_episode_keys)
+        except Exception as exc:
+            log.exception("Falha ao gravar o estado dos alertas: %s", exc)
 
 
 # ===========================================================================
@@ -1657,11 +1455,10 @@ def run_fundamentals_update_reminder(
     cfg: dict,
     now: datetime | None = None,
 ) -> None:
-    """Lembra mensalmente de atualizar DPA, LPA e VPA na configuração."""
+    """Lembra mensalmente de revisar os fundamentos em data/referencias_precos.json."""
     global _fundamentals_reminder_sent_month
 
     schedule_config = get_schedule_config(cfg)
-    opportunity_config = cfg.get("opportunity_alerts") or {}
     timezone = get_schedule_tz(cfg)
     current = now or datetime.now(timezone)
 
@@ -1683,22 +1480,21 @@ def run_fundamentals_update_reminder(
     if _fundamentals_reminder_sent_month == month_key:
         return
 
-    sale_tickers = ", ".join(
-        str(item.get("ticker", ""))
-        for item in opportunity_config.get("venda", [])
-        if isinstance(item, dict)
-    ) or "nenhum ativo cadastrado"
-    buy_tickers = ", ".join(
-        str(item.get("ticker", ""))
-        for item in opportunity_config.get("compra", [])
-        if isinstance(item, dict)
-    ) or "nenhum ativo cadastrado"
+    try:
+        dados_referencias = referencias.carregar_referencias()
+        fundamentos = ", ".join(referencias.tickers_com_fundamentos(dados_referencias))
+    except Exception as exc:
+        log.exception("Não foi possível listar fundamentos para o lembrete: %s", exc)
+        fundamentos = ""
 
     message = (
-        "🔔 Lembrete mensal — atualizar fundamentos do B3 Sniper\n\n"
-        f"Atualize a seção opportunity_alerts da configuração:\n"
-        f"• Venda: preencher dpa_12m para {sale_tickers}.\n"
-        f"• Compra: preencher lpa e vpa para {buy_tickers}.\n\n"
+        "🔔 Lembrete mensal — revisar fundamentos do B3 Sniper\n\n"
+        "Revise data/referencias_precos.json. Este lembrete não atualiza os dados automaticamente.\n"
+        f"• Preço justo: origem, data e insumos de {fundamentos or 'nenhum ativo cadastrado'}.\n"
+        "• FIIs: VPA, fonte e data de consulta.\n"
+        "• Ações e ETFs: máxima de 52 semanas, fonte e data da cotação.\n"
+        "• Confira dados ausentes, inválidos ou vencidos.\n"
+        "• Execute as validações existentes antes de considerar a atualização concluída.\n\n"
         "Após alterar os valores usados no Render, faça commit e deploy para aplicar a atualização."
     )
 
@@ -1762,7 +1558,15 @@ def main() -> None:
 
     token = get_bot_token(cfg)
 
-    assets = parse_assets(cfg)
+    try:
+        dados_referencias = referencias.carregar_referencias()
+        quantidade_referencias = len(dados_referencias.get("ativos") or [])
+    except Exception as exc:
+        quantidade_referencias = 0
+        log.exception("Referências de preço indisponíveis na inicialização: %s", exc)
+
+    with _alert_lock:
+        _alert_episode_keys.update(referencias.carregar_episodios())
 
     orders = load_ordens()
 
@@ -1849,7 +1653,6 @@ def main() -> None:
                 bot,
                 chat_id,
                 cfg,
-                assets,
             )
 
             run_order_check(
@@ -2056,16 +1859,13 @@ def main() -> None:
 
         try:
 
-            response = build_status_message(
-                cfg,
-                assets,
-            )
-
-            bot.reply_to(
-                message,
-                response,
-                parse_mode="MarkdownV2",
-            )
+            dados = referencias.carregar_referencias()
+            mensagens = build_status_messages(dados)
+            for indice, texto in enumerate(mensagens):
+                if indice == 0:
+                    bot.reply_to(message, texto, parse_mode="MarkdownV2")
+                else:
+                    bot.send_message(message.chat.id, texto, parse_mode="MarkdownV2")
 
         except Exception as e:
 
@@ -2167,13 +1967,13 @@ def main() -> None:
         "🤖 Bot iniciado. "
         "Intervalo: %s min. "
         "Chat alertas: %s. "
-        "Ativos: %s. "
+        "Referências: %s. "
         "Ordens: %s. "
         "Resumo EOD: %s. "
         "Timezone: %s",
         interval,
         chat_id,
-        len(assets),
+        quantidade_referencias,
         len(orders),
         eod_time,
         time.tzname,
