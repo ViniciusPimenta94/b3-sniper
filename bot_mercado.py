@@ -485,14 +485,25 @@ def build_signal_message(sinal: referencias.Sinal, symbol: str) -> tuple[str, st
 # YAHOO FINANCE
 # ===========================================================================
 
+def _mensagem_excecao_segura(exc: BaseException) -> str:
+    """Resume a exceção sem query string, corpo longo ou traceback."""
+    texto = " ".join(str(exc).split())
+    if "?" in texto:
+        texto = texto.split("?", 1)[0].rstrip()
+    if len(texto) > 160:
+        texto = texto[:160] + "..."
+    return texto
+
+
 def _price_from_ticker(
     ticker: yf.Ticker,
-) -> float | None:
+) -> tuple[float | None, str | None]:
     """
     Obtém o último preço conhecido pelo histórico de cotações.
 
     Prioriza o histórico para evitar chamadas auxiliares do `fast_info`,
     associadas aos erros 401/Invalid Crumb observados no Render.
+    O segundo item descreve o motivo quando não há preço. Não registra log.
     """
 
     try:
@@ -502,38 +513,35 @@ def _price_from_ticker(
             interval="1d",
         )
 
-        if (
-            hist is not None
-            and not hist.empty
-            and "Close" in hist.columns
-        ):
+    except Exception as exc:
 
-            value = hist["Close"].iloc[-1]
-
-            if value is not None:
-
-                value = float(value)
-
-                if value > 0:
-                    return value
-
-    except Exception as e:
-
-        log.debug(
-            "history falhou para %s: %s",
-            getattr(
-                ticker,
-                "ticker",
-                "desconhecido",
-            ),
-            e,
+        return None, (
+            f"exceção {type(exc).__name__}: "
+            f"{_mensagem_excecao_segura(exc)}"
         )
 
-    return None
+    if hist is None or getattr(hist, "empty", True):
+        return None, "histórico vazio"
+
+    if "Close" not in getattr(hist, "columns", ()):
+        return None, "coluna Close ausente"
+
+    try:
+
+        value = float(hist["Close"].iloc[-1])
+
+    except Exception:
+        return None, "Close inválido"
+
+    if not value > 0:
+        return None, "Close inválido"
+
+    return value, None
 
 
 def resolve_yahoo_symbol(
     user_ticker: str,
+    falhas: list[str] | None = None,
 ) -> tuple[str, float | None]:
     """
     Resolve o ticker no Yahoo Finance. Para ativos brasileiros,
@@ -543,16 +551,21 @@ def resolve_yahoo_symbol(
 
     CMIG4 -> CMIG4.SA
     XPLG11 -> XPLG11.SA
+
+    `falhas` recebe os motivos somente quando nenhum candidato tem preço.
     """
 
     base = user_ticker.strip().upper()
 
     if not base:
+        if falhas is not None:
+            falhas.append("ticker vazio")
         return base, None
 
     candidates = [base] if base.endswith(".SA") else [f"{base}.SA", base]
 
     last_symbol = candidates[-1]
+    tentativas: list[str] = []
 
     for symbol in candidates:
 
@@ -562,22 +575,26 @@ def resolve_yahoo_symbol(
 
             ticker = yf.Ticker(symbol)
 
-            price = _price_from_ticker(
+            price, motivo = _price_from_ticker(
                 ticker
             )
 
             if price is not None:
                 return symbol, price
 
-        except Exception as e:
+            tentativas.append(f"{symbol}: {motivo}")
 
-            log.debug(
-                "Erro ao consultar %s: %s",
-                symbol,
-                e,
+        except Exception as exc:
+
+            tentativas.append(
+                f"{symbol}: exceção {type(exc).__name__}: "
+                f"{_mensagem_excecao_segura(exc)}"
             )
 
             continue
+
+    if falhas is not None:
+        falhas.extend(tentativas)
 
     return last_symbol, None
 
@@ -593,9 +610,11 @@ def get_current_price(
 
         ticker = yf.Ticker(symbol)
 
-        return _price_from_ticker(
+        price, _motivo = _price_from_ticker(
             ticker
         )
+
+        return price
 
     except Exception as e:
 
@@ -900,7 +919,15 @@ def is_trading_window(
 
 def _bloco_status(ativo: dict, hoje, validade_dias: int) -> str:
     ticker = str(ativo.get("ticker") or "")
-    symbol, price = resolve_yahoo_symbol(ticker)
+    falhas: list[str] = []
+    symbol, price = resolve_yahoo_symbol(ticker, falhas)
+    if price is None:
+        log.warning(
+            "Cotação indisponível para %s (%s): %s",
+            ticker,
+            ativo.get("nome_amigavel") or ticker,
+            "; ".join(falhas) or "motivo não identificado",
+        )
     calculado = referencias.calcular_referencias(ativo, hoje, validade_dias)
     label = md_escape(str(ativo.get("nome_amigavel") or ticker))
     symbol_display = md_escape(display_ticker(symbol))

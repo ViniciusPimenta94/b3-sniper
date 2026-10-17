@@ -1,6 +1,8 @@
 import json
 import math
+import sys
 import tempfile
+import types
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -695,6 +697,171 @@ class CorrecoesFinaisTest(unittest.TestCase):
             faixa, 20.51, hoje=HOJE, validade_dias=45, margem_pct=0, episodios=set()
         )
         self.assertEqual(acima_faixa, [])
+
+
+_VALOR_NAO_NUMERICO = object()
+
+
+class _FalhaAoCriar:
+    def __init__(self, exc):
+        self.exc = exc
+
+
+class _SerieCotacao:
+    def __init__(self, valor):
+        self.valor = valor
+
+    @property
+    def iloc(self):
+        return self
+
+    def __getitem__(self, _indice):
+        if self.valor is _VALOR_NAO_NUMERICO:
+            raise TypeError("valor nao numerico")
+        return self.valor
+
+
+class _HistoricoCotacao:
+    def __init__(self, empty=False, columns=("Close",), close=10.0):
+        self.empty = empty
+        self.columns = columns
+        self._close = close
+
+    def __getitem__(self, coluna):
+        if coluna != "Close":
+            raise KeyError(coluna)
+        return _SerieCotacao(self._close)
+
+
+def _carregar_bot():
+    if "bot_mercado" in sys.modules:
+        return sys.modules["bot_mercado"]
+    try:
+        import flask  # noqa: F401
+    except ModuleNotFoundError:
+        flask = types.ModuleType("flask")
+
+        class Flask:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def before_request(self, fn):
+                return fn
+
+            def route(self, *args, **kwargs):
+                def deco(fn):
+                    return fn
+                return deco
+
+        flask.Flask = Flask
+        sys.modules["flask"] = flask
+    import bot_mercado
+    return bot_mercado
+
+
+class CotacaoStatusTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.bot = _carregar_bot()
+
+    def setUp(self):
+        self.ticker_original = self.bot.yf.Ticker
+
+    def tearDown(self):
+        self.bot.yf.Ticker = self.ticker_original
+
+    def _usar(self, respostas):
+        class Ticker:
+            def __init__(self, symbol):
+                self.symbol = symbol
+                resposta = respostas[symbol]
+                if isinstance(resposta, _FalhaAoCriar):
+                    raise resposta.exc
+                self.resposta = resposta
+
+            def history(self, period, interval):
+                self.periodo = period
+                self.intervalo = interval
+                if isinstance(self.resposta, Exception):
+                    raise self.resposta
+                return self.resposta
+
+        self.bot.yf.Ticker = Ticker
+
+    def _ativo(self, ticker="ITUB4.SA"):
+        return _ativo_graham(ticker=ticker, nome_amigavel="Itaú")
+
+    def test_status_registra_historico_vazio_sem_mudar_a_mensagem(self):
+        self._usar({"ITUB4.SA": _HistoricoCotacao(empty=True)})
+        with self.assertLogs(self.bot.log, level="WARNING") as capturado:
+            texto = self.bot._bloco_status(self._ativo(), HOJE, 45)
+        self.assertEqual(len(capturado.records), 1)
+        mensagem = capturado.records[0].getMessage()
+        self.assertIn("ITUB4.SA", mensagem)
+        self.assertIn("Itaú", mensagem)
+        self.assertIn("ITUB4.SA: histórico vazio", mensagem)
+        self.assertIn("Preço indisponível no momento", texto)
+        self.assertNotIn("histórico vazio", texto)
+
+    def test_motivos_de_close_e_excecao_sem_segredo(self):
+        casos = [
+            (_HistoricoCotacao(columns=()), "coluna Close ausente"),
+            (_HistoricoCotacao(close=None), "Close inválido"),
+            (_HistoricoCotacao(close=0), "Close inválido"),
+            (_HistoricoCotacao(close=-1), "Close inválido"),
+            (_HistoricoCotacao(close=float("nan")), "Close inválido"),
+            (_HistoricoCotacao(close=_VALOR_NAO_NUMERICO), "Close inválido"),
+            (None, "histórico vazio"),
+        ]
+        for resposta, motivo in casos:
+            with self.subTest(motivo=motivo, resposta=type(resposta).__name__):
+                self._usar({"ITUB4.SA": resposta})
+                with self.assertLogs(self.bot.log, level="WARNING") as capturado:
+                    self.bot._bloco_status(self._ativo(), HOJE, 45)
+                self.assertIn(motivo, capturado.records[0].getMessage())
+
+        erro = RuntimeError("https://query.yahoo/v8/finance?token=segredo&crumb=1")
+        self._usar({"ITUB4.SA": erro})
+        with self.assertLogs(self.bot.log, level="WARNING") as capturado:
+            self.bot._bloco_status(self._ativo(), HOJE, 45)
+        mensagem = capturado.records[0].getMessage()
+        self.assertIn("exceção RuntimeError: https://query.yahoo/v8/finance", mensagem)
+        self.assertNotIn("token=segredo", mensagem)
+        self.assertNotIn("crumb=1", mensagem)
+
+        self._usar({"ITUB4.SA": _FalhaAoCriar(ConnectionError("sem rede"))})
+        with self.assertLogs(self.bot.log, level="WARNING") as capturado:
+            self.bot._bloco_status(self._ativo(), HOJE, 45)
+        self.assertIn(
+            "exceção ConnectionError: sem rede",
+            capturado.records[0].getMessage(),
+        )
+
+    def test_cotacao_valida_nao_gera_log_e_fallback_so_registra_falha_final(self):
+        self._usar({"ITUB4.SA": _HistoricoCotacao(close=42.5)})
+        with self.assertNoLogs(self.bot.log, level="WARNING"):
+            texto = self.bot._bloco_status(self._ativo(), HOJE, 45)
+        self.assertNotIn("Preço indisponível no momento", texto)
+
+        self._usar({
+            "CMIG4.SA": _HistoricoCotacao(empty=True),
+            "CMIG4": _HistoricoCotacao(close=15),
+        })
+        with self.assertNoLogs(self.bot.log, level="WARNING"):
+            texto = self.bot._bloco_status(self._ativo("CMIG4"), HOJE, 45)
+        self.assertNotIn("Preço indisponível no momento", texto)
+
+        self._usar({
+            "CMIG4.SA": _HistoricoCotacao(empty=True),
+            "CMIG4": RuntimeError("rede"),
+        })
+        with self.assertLogs(self.bot.log, level="WARNING") as capturado:
+            texto = self.bot._bloco_status(self._ativo("CMIG4"), HOJE, 45)
+        self.assertEqual(len(capturado.records), 1)
+        mensagem = capturado.records[0].getMessage()
+        self.assertIn("CMIG4.SA: histórico vazio", mensagem)
+        self.assertIn("CMIG4: exceção RuntimeError: rede", mensagem)
+        self.assertIn("Preço indisponível no momento", texto)
 
 
 if __name__ == "__main__":
