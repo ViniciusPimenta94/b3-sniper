@@ -5,6 +5,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 
+import atualizar_precos
 import referencias as ref
 
 
@@ -307,11 +308,171 @@ class PersistenciaEArquivoTest(unittest.TestCase):
             self.assertEqual(dados["ativos"][0]["preco_teto"]["maxima_52s"], 200)
             self.assertEqual(dados["ativos"][0]["preco_teto"]["data_cotacao"], "2026-10-16")
             self.assertEqual(dados["ativos"][1]["preco_justo"]["lpa"], 4.23)
+            self.assertEqual(dados["ativos"][0]["preco_teto"]["origem"], "Yahoo Finance")
 
             destino = Path(pasta) / "referencias_precos.json"
             ref.salvar_referencias(dados, destino)
             recarregado = ref.carregar_referencias(destino)
             self.assertEqual(recarregado["ativos"][0]["preco_teto"]["maxima_52s"], 200)
+
+            com_origem = ref.atualizar_maximas(
+                dados,
+                lambda ticker: (210, "Yahoo Finance (fiftyTwoWeekHigh)") if ticker.startswith("IVVB") else None,
+                HOJE,
+            )
+            self.assertEqual(com_origem, 1)
+            self.assertEqual(dados["ativos"][0]["preco_teto"]["maxima_52s"], 210)
+            self.assertEqual(dados["ativos"][0]["preco_teto"]["origem"], "Yahoo Finance (fiftyTwoWeekHigh)")
+            self.assertEqual(dados["ativos"][0]["preco_teto"]["desconto_pct"], 0.05)
+
+    def test_origem_da_maxima_acompanha_a_fonte_do_yahoo(self):
+        class _Serie:
+            empty = False
+            columns = ["High"]
+
+            def __init__(self, valor):
+                self.valor = valor
+
+            def __getitem__(self, coluna):
+                self.coluna = coluna
+                return self
+
+            def max(self):
+                return self.valor
+
+        class _Vazio:
+            empty = True
+
+        class _Ticker:
+            def __init__(self, info, high=None):
+                self.info = info
+                self.high = high
+
+            def history(self, period):
+                self.periodo = period
+                if self.high is None:
+                    return _Vazio()
+                return _Serie(self.high)
+
+        def ativo():
+            return {
+                "ticker": "IVVB11.SA",
+                "preco_justo": None,
+                "preco_teto": {
+                    "metodo": "max_52_semanas",
+                    "desconto_pct": 0.05,
+                    "maxima_52s": 458.10,
+                    "data_cotacao": "2026-10-16",
+                    "origem": "Status Invest",
+                },
+                "faixa": {"preco_minimo": 1, "preco_maximo": 2},
+            }
+
+        info = _Ticker({"fiftyTwoWeekHigh": 460.5})
+        dados = {"ativos": [ativo(), {"ticker": "ITUB4.SA", "preco_justo": _graham(), "preco_teto": None}]}
+        resumo = atualizar_precos._atualizar_maximas_coletadas(
+            dados, HOJE, abrir=lambda ticker: info
+        )
+        bloco = dados["ativos"][0]["preco_teto"]
+        self.assertEqual(len(resumo.atualizados), 1)
+        self.assertEqual(bloco["maxima_52s"], 460.5)
+        self.assertEqual(bloco["origem"], atualizar_precos.ORIGEM_FIFTY_TWO_WEEK_HIGH)
+        self.assertEqual(bloco["desconto_pct"], 0.05)
+        self.assertEqual(dados["ativos"][0]["faixa"]["preco_minimo"], 1)
+        self.assertEqual(dados["ativos"][1]["preco_justo"]["lpa"], 4.23)
+
+        historico = _Ticker({}, high=153.37)
+        dados_high = {"ativos": [ativo()]}
+        atualizar_precos._atualizar_maximas_coletadas(dados_high, HOJE, abrir=lambda ticker: historico)
+        self.assertEqual(historico.periodo, "1y")
+        self.assertEqual(
+            dados_high["ativos"][0]["preco_teto"]["origem"],
+            atualizar_precos.ORIGEM_HIGH_UM_ANO,
+        )
+        self.assertEqual(dados_high["ativos"][0]["preco_teto"]["maxima_52s"], 153.37)
+        self.assertEqual(dados_high["ativos"][0]["preco_teto"]["desconto_pct"], 0.05)
+
+        sem_coleta = {"ativos": [ativo()]}
+        resumo_vazio = atualizar_precos._atualizar_maximas_coletadas(
+            sem_coleta, HOJE, abrir=lambda ticker: _Ticker({})
+        )
+        self.assertEqual(resumo_vazio.atualizados, [])
+        self.assertEqual(sem_coleta["ativos"][0]["preco_teto"]["origem"], "Status Invest")
+        self.assertEqual(sem_coleta["ativos"][0]["preco_teto"]["maxima_52s"], 458.10)
+
+    def test_resumo_separa_atualizados_falhas_e_revisao_manual(self):
+        class _Ticker:
+            def __init__(self, info=None, erro=False):
+                self.info = {} if info is None else info
+                self.erro = erro
+
+            def history(self, period):
+                if self.erro:
+                    raise RuntimeError("rede")
+                return type("Vazio", (), {"empty": True})()
+
+        def maxima(ticker, valor, origem="Status Invest"):
+            return {
+                "ticker": ticker,
+                "preco_justo": None,
+                "preco_teto": {
+                    "metodo": "max_52_semanas",
+                    "desconto_pct": 0.05,
+                    "maxima_52s": valor,
+                    "data_cotacao": "2026-10-16",
+                    "origem": origem,
+                },
+                "faixa": None,
+            }
+
+        def abrir(ticker):
+            if ticker == "FALHA.SA":
+                return _Ticker(erro=True)
+            if ticker == "INVALIDA.SA":
+                return _Ticker({"fiftyTwoWeekHigh": -1})
+            if ticker == "IGUAL.SA":
+                return _Ticker({"fiftyTwoWeekHigh": 100})
+            if ticker == "NOVA.SA":
+                return _Ticker({"fiftyTwoWeekHigh": 200})
+            raise AssertionError(ticker)
+
+        vencido = {
+            "ticker": "TAEE11.SA",
+            "preco_justo": _graham(data_fundamentos="2020-01-01"),
+            "preco_teto": {"metodo": "desconto_sobre_justo", "desconto_pct": 0.25},
+            "faixa": None,
+        }
+        dados = {
+            "validade_dias": 45,
+            "ativos": [
+                maxima("FALHA.SA", 10),
+                maxima("INVALIDA.SA", 11),
+                maxima("IGUAL.SA", 100, atualizar_precos.ORIGEM_FIFTY_TWO_WEEK_HIGH),
+                maxima("NOVA.SA", 50),
+                vencido,
+            ],
+        }
+        antes_falha = dict(dados["ativos"][0]["preco_teto"])
+        antes_invalida = dict(dados["ativos"][1]["preco_teto"])
+        resumo = atualizar_precos._atualizar_maximas_coletadas(dados, HOJE, abrir=abrir)
+
+        self.assertEqual(resumo.atualizados, ["NOVA.SA: máxima, origem"])
+        self.assertTrue(any(item.startswith("FALHA.SA:") and "preservados" in item for item in resumo.falhas))
+        self.assertTrue(any(item.startswith("INVALIDA.SA:") and "preservados" in item for item in resumo.falhas))
+        self.assertFalse(any(item.startswith("IGUAL.SA:") for item in resumo.atualizados))
+        self.assertEqual(dados["ativos"][0]["preco_teto"], antes_falha)
+        self.assertEqual(dados["ativos"][1]["preco_teto"], antes_invalida)
+        self.assertEqual(dados["ativos"][2]["preco_teto"]["maxima_52s"], 100)
+        self.assertEqual(dados["ativos"][3]["preco_teto"]["maxima_52s"], 200)
+        self.assertEqual(dados["ativos"][3]["preco_teto"]["desconto_pct"], 0.05)
+        self.assertTrue(any(item.startswith("TAEE11.SA:") and "vencida" in item for item in resumo.revisao_manual))
+        self.assertFalse(any(item.startswith("NOVA.SA:") for item in resumo.revisao_manual))
+
+        texto = atualizar_precos.formatar_resumo(atualizar_precos.ResumoAtualizacao())
+        self.assertIn("Atualizados: nenhum", texto)
+        self.assertIn("Falhas: nenhuma", texto)
+        self.assertIn("Revisão manual: nenhuma", texto)
+        self.assertIn("Fundamentos não são coletados automaticamente", texto)
 
     def test_arquivo_real_cobre_os_ativos_e_preserva_o_config(self):
         with open(RAIZ / "config.json", encoding="utf-8") as handle:

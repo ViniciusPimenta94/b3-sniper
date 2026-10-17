@@ -600,7 +600,11 @@ def aplicar_maxima_52(ativo: dict, maxima: float, data_cotacao: str) -> bool:
 
 
 def atualizar_maximas(dados: dict, buscar, hoje: date) -> int:
-    """Atualiza só máximas de 52 semanas. `buscar` recebe o ticker e devolve float ou None."""
+    """Atualiza só máximas de 52 semanas.
+
+    `buscar` devolve float, None ou (float, origem). A origem recebida substitui
+    a origem anterior. Um float não apaga a origem já preenchida.
+    """
     alterados = 0
     for ativo in dados.get("ativos") or []:
         if not isinstance(ativo, dict):
@@ -609,9 +613,19 @@ def atualizar_maximas(dados: dict, buscar, hoje: date) -> int:
         if not isinstance(bloco, dict) or bloco.get("metodo") != "max_52_semanas":
             continue
         ticker = str(ativo.get("ticker") or "")
-        maxima = buscar(ticker)
-        if aplicar_maxima_52(ativo, maxima, hoje.isoformat()):
-            alterados += 1
+        coleta = buscar(ticker)
+        origem = None
+        if isinstance(coleta, tuple):
+            if len(coleta) != 2:
+                continue
+            maxima, origem = coleta
+        else:
+            maxima = coleta
+        if not aplicar_maxima_52(ativo, maxima, hoje.isoformat()):
+            continue
+        if isinstance(origem, str) and origem.strip():
+            bloco["origem"] = origem.strip()
+        alterados += 1
     return alterados
 
 

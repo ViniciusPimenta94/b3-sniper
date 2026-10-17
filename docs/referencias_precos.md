@@ -43,13 +43,15 @@ O `/status` mostra o valor quando os números já permitem calculá-lo, mesmo co
 
 Yield e desconto ficam no intervalo `[0, 1)`. Yield `0` é rejeitado. Preços e fundamentos numéricos precisam ser finitos e maiores que zero.
 
-VISC11, XPLG11, PVBI11, BTHF11 e CPTS11 têm o VPA preenchido, origem `Status Invest` e data de consulta `2026-10-16` em `data_fundamentos`. Essa data é a da consulta informada; o arquivo não registra a competência contábil do VPA. IVVB11, WRLD11 e WEGE3 têm a máxima de 52 semanas preenchida, origem `Status Invest` e data de cotação `2026-10-16` em `data_cotacao`. O desconto desses três ativos permanece `0,05`.
+VISC11, XPLG11, PVBI11, BTHF11 e CPTS11 têm o VPA preenchido, origem `Status Invest` e data de consulta `2026-10-16` em `data_fundamentos`. Essa data é a da consulta informada; o arquivo não registra a competência contábil do VPA. IVVB11, WRLD11 e WEGE3 têm a máxima de 52 semanas preenchida: `461,49`, `154,02` e `54,53`, com origem `Yahoo Finance (fiftyTwoWeekHigh)`. `data_cotacao` `2026-10-16` é a data da consulta registrada, não a data em que a máxima ocorreu. O desconto desses três ativos permanece `0,05`.
 
 ## Atualização
 
 Fundamentos de Graham, Bazin, manual e FII são editados no JSON. O script não substitui esses números por dados do Yahoo.
 
-`python atualizar_precos.py` só preenche a máxima de 52 semanas e a data da coleta. O desconto configurado é mantido. Se a coleta falhar, o teto anterior permanece e nenhum alerta passa a usar um valor inventado.
+`python atualizar_precos.py` grava a máxima de 52 semanas, a data da coleta e a fonte efetivamente usada pelo Yahoo Finance: `fiftyTwoWeekHigh` ou, na falta dele, a máxima da coluna `High` em um ano. O desconto configurado é mantido. Se nenhuma máxima nova for obtida, a máxima, a data e a origem anteriores permanecem, e nenhum alerta passa a usar um valor inventado. O script não coleta fundamentos automaticamente.
+
+O terminal lista três grupos. **Atualizados:** ativo em que a máxima, a data ou a origem mudou. **Falhas:** coleta indisponível, inválida ou interrompida, com o motivo e a preservação dos dados anteriores. **Revisão manual:** pendências já apontadas pelas validações existentes. Lista vazia aparece como `nenhum` ou `nenhuma`. O JSON só é gravado quando um desses campos monitorados muda.
 
 ## Alertas
 
@@ -58,7 +60,7 @@ O preço teto é o limite de compra. A faixa continua independente. As ordens de
 - BBSE3 e TIMS3 usam Bazin com desconto de `0,15`. O alerta de compra fica em 85% do preço justo. TIMS3 tem yield `0,06` e dividendos `1,4723`. BBSE3 tem yield `0,08` e dividendos `4,5901`.
 - ITUB4, TAEE11, TOTS3, SBSP3 e CMIG4 usam Graham com desconto de `0,25`. O alerta de compra fica em 75% do preço justo. TAEE11 tem LPA `4,72` e VPA `23,43`. Itaú, TOTVS, Sabesp e Cemig usam os fundamentos de 14/10/2026.
 - Os cinco FIIs permanecem com desconto `0` até a classificação de cada um. Com esse desconto, não há alerta de compra pelo preço justo.
-- WEG, IVVB11 e WRLD11 usam a máxima de 52 semanas, com desconto `0,05`. As máximas registradas são IVVB11 `458,10`, WRLD11 `153,37` e WEGE3 `53,83`, com origem `Status Invest` e data da cotação `2026-10-16`.
+- WEG, IVVB11 e WRLD11 usam a máxima de 52 semanas, com desconto `0,05`. As máximas registradas são IVVB11 `461,49`, WRLD11 `154,02` e WEGE3 `54,53`, com origem `Yahoo Finance (fiftyTwoWeekHigh)`. A data `2026-10-16` em `data_cotacao` é a da consulta, não a da ocorrência da máxima.
 - Os FIIs usam `fii_vp`. Os VPAs registrados são VISC11 `115,60`, XPLG11 `105,03`, PVBI11 `104,53`, BTHF11 `9,86` e CPTS11 `8,65`, com origem `Status Invest` e data de consulta `2026-10-16`.
 - As faixas de B3, Cyrela, C&A, Banco do Brasil e Petrobras foram copiadas sem mudança.
 

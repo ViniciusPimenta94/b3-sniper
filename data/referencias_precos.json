@@ -11,9 +11,9 @@
       "preco_teto": {
         "metodo": "max_52_semanas",
         "desconto_pct": 0.05,
-        "maxima_52s": 458.10,
+        "maxima_52s": 461.49,
         "data_cotacao": "2026-10-16",
-        "origem": "Status Invest"
+        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
       },
       "faixa": null
     },
@@ -24,9 +24,9 @@
       "preco_teto": {
         "metodo": "max_52_semanas",
         "desconto_pct": 0.05,
-        "maxima_52s": 153.37,
+        "maxima_52s": 154.02,
         "data_cotacao": "2026-10-16",
-        "origem": "Status Invest"
+        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
       },
       "faixa": null
     },
@@ -85,9 +85,9 @@
       "preco_teto": {
         "metodo": "max_52_semanas",
         "desconto_pct": 0.05,
-        "maxima_52s": 53.83,
+        "maxima_52s": 54.53,
         "data_cotacao": "2026-10-16",
-        "origem": "Status Invest"
+        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
       },
       "faixa": null
     },
