@@ -2,6 +2,10 @@
 
 O monitoramento de preços lê `data/referencias_precos.json`. `config.json` continua com Telegram, agenda e o cadastro anterior, usado só como rollback. `ordens.json` não entra neste cálculo.
 
+`config.json` → `referencias.modo` escolhe o cálculo de preço justo e preço teto. O padrão é `automatico`. Chave ausente ou valor diferente de `manual` permanece automático. `config.local.json`, quando existe, substitui o arquivo inteiro, como no restante da configuração.
+
+No modo `manual`, preço justo e preço teto saem só de `data/referencias_manuais.json`: `ticker`, `nome`, `preco_justo` e `preco_teto`. Os números não são recalculados. Arquivo ausente, inválido, ticker repetido ou ativo sem linha gera pendência e não volta para Graham, Bazin, FII ou máxima. A lista monitorada e a cotação continuam no ticker de `data/referencias_precos.json`. A faixa desse arquivo também permanece. `python atualizar_precos.py` não coleta nem grava máxima nesse modo. O lembrete mensal aponta o arquivo manual. A chave de deduplicação do teto usa o método `manual`; a troca de modo substitui só as chaves de teto daquele ticker.
+
 Cada ativo pode ter três referências independentes:
 
 - **Preço justo:** Graham, Bazin, manual ou valor patrimonial do FII.

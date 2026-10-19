@@ -917,19 +917,34 @@ def is_trading_window(
 # MENSAGENS TELEGRAM
 # ===========================================================================
 
-def _bloco_status(ativo: dict, hoje, validade_dias: int) -> str:
+def _bloco_status(
+    ativo: dict,
+    hoje,
+    validade_dias: int,
+    *,
+    modo: str = "automatico",
+    carga: referencias.CargaManual | None = None,
+) -> str:
     ticker = str(ativo.get("ticker") or "")
     falhas: list[str] = []
     symbol, price = resolve_yahoo_symbol(ticker, falhas)
+    usa_manual = isinstance(modo, str) and modo.strip().lower() == "manual"
+    rotulo = referencias.rotulo_ativo(ativo, carga if usa_manual else None)
     if price is None:
         log.warning(
             "Cotação indisponível para %s (%s): %s",
             ticker,
-            ativo.get("nome_amigavel") or ticker,
+            rotulo,
             "; ".join(falhas) or "motivo não identificado",
         )
-    calculado = referencias.calcular_referencias(ativo, hoje, validade_dias)
-    label = md_escape(str(ativo.get("nome_amigavel") or ticker))
+    calculado = referencias.calcular_referencias(
+        ativo,
+        hoje,
+        validade_dias,
+        modo=modo,
+        carga=carga,
+    )
+    label = md_escape(rotulo)
     symbol_display = md_escape(display_ticker(symbol))
     lines = [f"*{label}* \\({symbol_display}\\)"]
 
@@ -947,7 +962,12 @@ def _bloco_status(ativo: dict, hoje, validade_dias: int) -> str:
     return "\n".join(lines)
 
 
-def build_status_messages(dados: dict) -> list[str]:
+def build_status_messages(
+    dados: dict,
+    *,
+    modo: str = "automatico",
+    carga: referencias.CargaManual | None = None,
+) -> list[str]:
     """Monta o /status a partir das referências, em partes abaixo do limite do Telegram."""
     hoje = referencias.hoje_brasilia()
     validade = int(dados["validade_dias"])
@@ -962,7 +982,7 @@ def build_status_messages(dados: dict) -> list[str]:
     ]
     for ativo in dados.get("ativos") or []:
         if isinstance(ativo, dict) and ativo.get("ticker"):
-            blocos.append(_bloco_status(ativo, hoje, validade))
+            blocos.append(_bloco_status(ativo, hoje, validade, modo=modo, carga=carga))
 
     mensagens: list[str] = []
     atual = ""
@@ -1213,6 +1233,8 @@ def run_price_check(
         return
 
     hoje = referencias.hoje_brasilia()
+    modo_preco = referencias.modo_referencias(cfg)
+    carga = referencias.carregar_referencias_manuais() if modo_preco == "manual" else None
     pendentes = []
 
     with _alert_lock:
@@ -1234,6 +1256,8 @@ def run_price_check(
                     validade_dias=int(dados["validade_dias"]),
                     margem_pct=float(dados["margem_proximidade_pct"]),
                     episodios=_alert_episode_keys,
+                    modo=modo_preco,
+                    carga=carga,
                 )
                 pendentes.extend((sinal, symbol, price) for sinal in sinais)
             except Exception as exc:
@@ -1507,23 +1531,34 @@ def run_fundamentals_update_reminder(
     if _fundamentals_reminder_sent_month == month_key:
         return
 
-    try:
-        dados_referencias = referencias.carregar_referencias()
-        fundamentos = ", ".join(referencias.tickers_com_fundamentos(dados_referencias))
-    except Exception as exc:
-        log.exception("Não foi possível listar fundamentos para o lembrete: %s", exc)
-        fundamentos = ""
+    if referencias.modo_referencias(cfg) == "manual":
+        message = (
+            "🔔 Lembrete mensal — revisar preços manuais do B3 Sniper\n\n"
+            "Revise data/referencias_manuais.json. Este lembrete não atualiza os dados automaticamente.\n"
+            "• Preço justo e preço teto são os números informados nesse arquivo.\n"
+            "• Este modo não recalcula esses valores por fórmula.\n"
+            "• Confira preços ausentes, inválidos ou ativos sem cadastro manual.\n"
+            "• As faixas de oportunidade continuam em data/referencias_precos.json.\n\n"
+            "Após alterar os valores usados no Render, faça commit e deploy para aplicar a atualização."
+        )
+    else:
+        try:
+            dados_referencias = referencias.carregar_referencias()
+            fundamentos = ", ".join(referencias.tickers_com_fundamentos(dados_referencias))
+        except Exception as exc:
+            log.exception("Não foi possível listar fundamentos para o lembrete: %s", exc)
+            fundamentos = ""
 
-    message = (
-        "🔔 Lembrete mensal — revisar fundamentos do B3 Sniper\n\n"
-        "Revise data/referencias_precos.json. Este lembrete não atualiza os dados automaticamente.\n"
-        f"• Preço justo: origem, data e insumos de {fundamentos or 'nenhum ativo cadastrado'}.\n"
-        "• FIIs: VPA, fonte e data de consulta.\n"
-        "• Ações e ETFs: máxima de 52 semanas, fonte e data da cotação.\n"
-        "• Confira dados ausentes, inválidos ou vencidos.\n"
-        "• Execute as validações existentes antes de considerar a atualização concluída.\n\n"
-        "Após alterar os valores usados no Render, faça commit e deploy para aplicar a atualização."
-    )
+        message = (
+            "🔔 Lembrete mensal — revisar fundamentos do B3 Sniper\n\n"
+            "Revise data/referencias_precos.json. Este lembrete não atualiza os dados automaticamente.\n"
+            f"• Preço justo: origem, data e insumos de {fundamentos or 'nenhum ativo cadastrado'}.\n"
+            "• FIIs: VPA, fonte e data de consulta.\n"
+            "• Ações e ETFs: máxima de 52 semanas, fonte e data da cotação.\n"
+            "• Confira dados ausentes, inválidos ou vencidos.\n"
+            "• Execute as validações existentes antes de considerar a atualização concluída.\n\n"
+            "Após alterar os valores usados no Render, faça commit e deploy para aplicar a atualização."
+        )
 
     try:
         bot.send_message(chat_id, message)
@@ -1887,7 +1922,9 @@ def main() -> None:
         try:
 
             dados = referencias.carregar_referencias()
-            mensagens = build_status_messages(dados)
+            modo = referencias.modo_referencias(cfg)
+            carga = referencias.carregar_referencias_manuais() if modo == "manual" else None
+            mensagens = build_status_messages(dados, modo=modo, carga=carga)
             for indice, texto in enumerate(mensagens):
                 if indice == 0:
                     bot.reply_to(message, texto, parse_mode="MarkdownV2")

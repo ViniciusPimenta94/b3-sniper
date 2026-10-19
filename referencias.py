@@ -4,6 +4,9 @@ Preços de referência do B3 Sniper.
 Separa preço justo, preço teto e faixa personalizada.
 As fórmulas e a validação ficam aqui para o bot e o atualizador
 usarem a mesma regra, sem depender de Telegram ou de rede.
+
+O modo automático é o padrão. O modo manual lê preço justo e preço
+teto numéricos em data/referencias_manuais.json e não aplica fórmula.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from zoneinfo import ZoneInfo
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 REFERENCIAS_PATH = DATA_DIR / "referencias_precos.json"
+MANUAIS_PATH = DATA_DIR / "referencias_manuais.json"
 ESTADO_ALERTAS_PATH = DATA_DIR / "alertas_estado.json"
 
 TZ_BRASILIA = ZoneInfo("America/Sao_Paulo")
@@ -53,6 +57,15 @@ class ReferenciasCalculadas:
     problemas_teto: list[str] = field(default_factory=list)
     problemas_faixa: list[str] = field(default_factory=list)
     emitir_teto: bool = False
+
+
+@dataclass
+class CargaManual:
+    """Preços manuais já lidos. ok falso não autoriza fórmula automática."""
+
+    ok: bool
+    por_ticker: dict[str, dict] = field(default_factory=dict)
+    erro: str | None = None
 
 
 @dataclass(frozen=True)
@@ -218,6 +231,130 @@ def _detalhes_justo(bloco: dict) -> tuple[str, str]:
     )
 
 
+def _eh_manual(modo: str | None) -> bool:
+    return isinstance(modo, str) and modo.strip().lower() == "manual"
+
+
+def modo_referencias(cfg: dict | None) -> str:
+    """Só 'manual' liga o modo manual. Ausência ou valor inválido fica automático."""
+    if not isinstance(cfg, dict):
+        return "automatico"
+    bloco = cfg.get("referencias")
+    if not isinstance(bloco, dict):
+        return "automatico"
+    if _eh_manual(bloco.get("modo")):
+        return "manual"
+    return "automatico"
+
+
+def modo_do_arquivo_config(base: Path | None = None) -> str:
+    """Lê a mesma preferência do bot: config.local.json, senão config.json."""
+    raiz = base or BASE_DIR
+    for nome in ("config.local.json", "config.json"):
+        caminho = raiz / nome
+        if not caminho.is_file():
+            continue
+        try:
+            with open(caminho, encoding="utf-8") as handle:
+                dados = json.load(handle)
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return "automatico"
+        return modo_referencias(dados if isinstance(dados, dict) else None)
+    return "automatico"
+
+
+def carregar_referencias_manuais(path: Path | None = None) -> CargaManual:
+    """Carrega o arquivo manual. Falha não devolve preço calculado."""
+    arquivo = path or MANUAIS_PATH
+    if not arquivo.is_file():
+        return CargaManual(False, {}, "arquivo de preços manuais ausente")
+    try:
+        with open(arquivo, encoding="utf-8") as handle:
+            dados = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return CargaManual(False, {}, "arquivo de preços manuais inválido")
+    if not isinstance(dados, dict) or not isinstance(dados.get("ativos"), list):
+        return CargaManual(False, {}, "arquivo de preços manuais inválido")
+    por_ticker: dict[str, dict] = {}
+    for item in dados["ativos"]:
+        if not isinstance(item, dict):
+            return CargaManual(False, {}, "arquivo de preços manuais inválido")
+        ticker = str(item.get("ticker") or "").strip().upper()
+        if not ticker or ticker in por_ticker:
+            return CargaManual(False, {}, "arquivo de preços manuais inválido")
+        por_ticker[ticker] = item
+    return CargaManual(True, por_ticker, None)
+
+
+def rotulo_ativo(ativo: dict, carga: CargaManual | None = None) -> str:
+    """Nome do texto. No manual, o nome do arquivo manual prevalece quando existe."""
+    ticker = str(ativo.get("ticker") or "").strip()
+    if carga is not None and carga.ok:
+        linha = carga.por_ticker.get(ticker.upper())
+        if isinstance(linha, dict):
+            nome = linha.get("nome")
+            if isinstance(nome, str) and nome.strip():
+                return nome.strip()
+    nome_principal = ativo.get("nome_amigavel")
+    if isinstance(nome_principal, str) and nome_principal.strip():
+        return nome_principal.strip()
+    return ticker or "ativo"
+
+
+def _interpretar_preco_manual(valor, nome: str) -> tuple[float | None, list[str]]:
+    if isinstance(valor, bool) or valor is None:
+        return None, [f"{nome} ausente ou inválido"]
+    numero, erro = _numero_positivo(valor, nome)
+    if erro or numero is None:
+        return None, [erro or f"{nome} ausente ou inválido"]
+    return numero, []
+
+
+def _aplicar_faixa(resultado: ReferenciasCalculadas, faixa) -> None:
+    if isinstance(faixa, dict):
+        resultado.problemas_faixa = validar_faixa(faixa)
+        if not resultado.problemas_faixa:
+            resultado.faixa = (float(faixa["preco_minimo"]), float(faixa["preco_maximo"]))
+    elif faixa is not None:
+        resultado.problemas_faixa.append("faixa personalizada inválida")
+
+
+def calcular_referencias_manuais(
+    ativo: dict,
+    carga: CargaManual | None,
+) -> ReferenciasCalculadas:
+    """Usa só números manuais. Não lê método, desconto nem fórmula do ativo."""
+    resultado = ReferenciasCalculadas()
+    ticker = str(ativo.get("ticker") or "").strip().upper()
+    if carga is None or not carga.ok:
+        mensagem = carga.erro if carga and carga.erro else "arquivo de preços manuais indisponível"
+        resultado.problemas_justo.append(mensagem)
+        resultado.problemas_teto.append(mensagem)
+    else:
+        linha = carga.por_ticker.get(ticker)
+        if not isinstance(linha, dict):
+            resultado.problemas_justo.append("preço manual ausente")
+            resultado.problemas_teto.append("preço manual ausente")
+        else:
+            justo, problemas_justo = _interpretar_preco_manual(linha.get("preco_justo"), "preco_justo")
+            teto, problemas_teto = _interpretar_preco_manual(linha.get("preco_teto"), "preco_teto")
+            resultado.problemas_justo.extend(problemas_justo)
+            resultado.problemas_teto.extend(problemas_teto)
+            if justo is not None and not problemas_justo:
+                resultado.justo = justo
+                resultado.metodo_justo = "manual"
+                resultado.detalhes_justo = f"Preço informado {fmt_numero(justo)}"
+                resultado.base_justo = "Preço justo informado manualmente"
+            if teto is not None and not problemas_teto:
+                resultado.teto = teto
+                resultado.metodo_teto = "manual"
+                resultado.detalhes_teto = f"Preço informado {fmt_numero(teto)}"
+                resultado.base_teto = "Preço teto informado manualmente"
+                resultado.emitir_teto = True
+    _aplicar_faixa(resultado, ativo.get("faixa"))
+    return resultado
+
+
 def validar_faixa(faixa: dict) -> list[str]:
     if not isinstance(faixa, dict):
         return ["faixa personalizada inválida"]
@@ -233,7 +370,12 @@ def calcular_referencias(
     ativo: dict,
     hoje: date,
     validade_dias: int,
+    *,
+    modo: str = "automatico",
+    carga: CargaManual | None = None,
 ) -> ReferenciasCalculadas:
+    if _eh_manual(modo):
+        return calcular_referencias_manuais(ativo, carga)
     resultado = ReferenciasCalculadas()
     bloco_justo = ativo.get("preco_justo")
     bloco_teto = ativo.get("preco_teto")
@@ -440,6 +582,48 @@ def _encerrar_categoria(episodios: set[str], categoria: str, ticker: str) -> Non
     _limpar_exceto(episodios, f"pendencia|{categoria}|{ticker}|", None)
 
 
+def _avaliar_teto(
+    calculado: ReferenciasCalculadas,
+    *,
+    ticker: str,
+    label: str,
+    preco: float,
+    margem: float,
+    margem_pct: float,
+    episodios: set[str],
+) -> Sinal | None:
+    """Atualiza só chaves de teto deste ticker."""
+    if calculado.problemas_teto:
+        return _sinal_pendencia(
+            categoria="teto",
+            ticker=ticker,
+            label=label,
+            preco=preco,
+            pendencias=calculado.problemas_teto,
+            episodios=episodios,
+        )
+    if calculado.emitir_teto and calculado.teto is not None:
+        dentro = preco <= calculado.teto * (1 + margem)
+        if dentro:
+            return _sinal_alerta(
+                categoria="teto",
+                ticker=ticker,
+                label=label,
+                preco=preco,
+                referencia=calculado.teto,
+                referencia_fim=None,
+                metodo=calculado.metodo_teto,
+                resumo=calculado.detalhes_teto,
+                base=calculado.base_teto,
+                margem_pct=margem_pct if margem else 0.0,
+                episodios=episodios,
+            )
+        _encerrar_categoria(episodios, "teto", ticker)
+        return None
+    _encerrar_categoria(episodios, "teto", ticker)
+    return None
+
+
 def avaliar_ativo(
     ativo: dict,
     preco: float,
@@ -448,19 +632,50 @@ def avaliar_ativo(
     validade_dias: int,
     margem_pct: float,
     episodios: set[str],
+    modo: str = "automatico",
+    carga: CargaManual | None = None,
 ) -> list[Sinal]:
     """
     Atualiza os episódios e devolve somente os sinais que ainda não foram enviados.
     O preço justo é calculado para o /status e não gera alerta de compra.
     O alerta de compra sai pelo preço teto quando o desconto é maior que zero.
+    No modo manual, justo e teto vêm só do arquivo manual.
     """
     ticker = str(ativo.get("ticker") or "").strip().upper()
-    label = str(ativo.get("nome_amigavel") or ticker).strip() or ticker
-    calculado = calcular_referencias(ativo, hoje, validade_dias)
+    manual = _eh_manual(modo)
+    label = rotulo_ativo(ativo, carga if manual else None)
+    calculado = (
+        calcular_referencias_manuais(ativo, carga)
+        if manual
+        else calcular_referencias(ativo, hoje, validade_dias)
+    )
     margem = margem_pct / 100 if math.isfinite(margem_pct) and margem_pct > 0 else 0.0
     envios: list[Sinal] = []
 
-    if ativo.get("preco_justo") is not None or (
+    if manual:
+        if calculado.problemas_justo:
+            sinal = _sinal_pendencia(
+                categoria="justo",
+                ticker=ticker,
+                label=label,
+                preco=preco,
+                pendencias=calculado.problemas_justo,
+                episodios=episodios,
+            )
+            if sinal:
+                envios.append(sinal)
+        sinal_teto = _avaliar_teto(
+            calculado,
+            ticker=ticker,
+            label=label,
+            preco=preco,
+            margem=margem,
+            margem_pct=margem_pct,
+            episodios=episodios,
+        )
+        if sinal_teto:
+            envios.append(sinal_teto)
+    elif ativo.get("preco_justo") is not None or (
         not ativo.get("preco_justo") and calculado.problemas_justo and not ativo.get("preco_teto") and not ativo.get("faixa")
     ):
         if calculado.problemas_justo:
@@ -477,7 +692,7 @@ def avaliar_ativo(
         else:
             _encerrar_categoria(episodios, "justo", ticker)
 
-    if ativo.get("preco_teto") is not None:
+    if not manual and ativo.get("preco_teto") is not None:
         if calculado.problemas_teto:
             sinal = _sinal_pendencia(
                 categoria="teto",

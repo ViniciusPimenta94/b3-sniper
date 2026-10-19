@@ -864,5 +864,244 @@ class CotacaoStatusTest(unittest.TestCase):
         self.assertIn("Preço indisponível no momento", texto)
 
 
+class ModoManualTest(unittest.TestCase):
+    def _carga(self, **precos):
+        return ref.CargaManual(
+            True,
+            {
+                "ITUB4.SA": {
+                    "ticker": "ITUB4.SA",
+                    "nome": "Itaú manual",
+                    "preco_justo": precos.get("justo", 10),
+                    "preco_teto": precos.get("teto", 7.5),
+                }
+            },
+        )
+
+    def test_flag_ausente_ou_invalida_permanece_automatica(self):
+        self.assertEqual(ref.modo_referencias(None), "automatico")
+        self.assertEqual(ref.modo_referencias({}), "automatico")
+        self.assertEqual(ref.modo_referencias({"referencias": {}}), "automatico")
+        self.assertEqual(ref.modo_referencias({"referencias": {"modo": " "}}), "automatico")
+        self.assertEqual(ref.modo_referencias({"referencias": {"modo": "auto"}}), "automatico")
+        self.assertEqual(ref.modo_referencias({"referencias": "manual"}), "automatico")
+        self.assertEqual(ref.modo_referencias({"referencias": {"modo": " manual "}}), "manual")
+
+        with open(RAIZ / "config.json", encoding="utf-8") as handle:
+            config = json.load(handle)
+        self.assertEqual(ref.modo_referencias(config), "automatico")
+
+        graham = math.sqrt(22.5 * 4.23 * 18.83)
+        ativo = _ativo_graham()
+        calculado = ref.calcular_referencias(ativo, HOJE, 45, modo="automatico", carga=self._carga())
+        self.assertAlmostEqual(calculado.justo, graham)
+        self.assertFalse(calculado.emitir_teto)
+
+        carga_real = ref.carregar_referencias_manuais(RAIZ / "data" / "referencias_manuais.json")
+        self.assertTrue(carga_real.ok)
+        self.assertEqual(carga_real.por_ticker, {})
+
+    def test_manual_usa_teto_numerico_mesmo_com_graham(self):
+        ativo = _ativo_graham()
+        calculado = ref.calcular_referencias(ativo, HOJE, 45, modo="manual", carga=self._carga())
+        self.assertEqual(calculado.justo, 10)
+        self.assertEqual(calculado.teto, 7.5)
+        self.assertEqual(calculado.metodo_teto, "manual")
+        self.assertTrue(calculado.emitir_teto)
+        self.assertNotAlmostEqual(calculado.justo, math.sqrt(22.5 * 4.23 * 18.83))
+        linhas = ref.linhas_status(calculado)
+        self.assertTrue(any("R$ 10,00" in linha for linha in linhas))
+        self.assertTrue(any("R$ 7,50" in linha for linha in linhas))
+        self.assertFalse(any("22,5" in linha or "Graham" in linha for linha in linhas))
+
+    def test_faixa_no_manual_ignora_precos_manuais(self):
+        ativo = {
+            "ticker": "B3SA3.SA",
+            "nome_amigavel": "B3",
+            "preco_justo": _graham(),
+            "preco_teto": {"metodo": "desconto_sobre_justo", "desconto_pct": 0.25},
+            "faixa": {"preco_minimo": 19, "preco_maximo": 20.5},
+        }
+        carga = ref.CargaManual(
+            True,
+            {
+                "B3SA3.SA": {
+                    "ticker": "B3SA3.SA",
+                    "nome": "Outro nome",
+                    "preco_justo": 1,
+                    "preco_teto": 1,
+                }
+            },
+        )
+        for preco in (19, 20.5):
+            sinais = ref.avaliar_ativo(
+                ativo,
+                preco,
+                hoje=HOJE,
+                validade_dias=45,
+                margem_pct=0,
+                episodios=set(),
+                modo="manual",
+                carga=carga,
+            )
+            alertas = [item for item in sinais if item.tipo == "alerta"]
+            self.assertEqual([item.categoria for item in alertas], ["faixa"])
+            self.assertEqual(alertas[0].referencia, 19)
+            self.assertEqual(alertas[0].referencia_fim, 20.5)
+            self.assertEqual(alertas[0].label, "Outro nome")
+            self.assertFalse(any(item.categoria == "teto" and item.tipo == "alerta" for item in sinais))
+
+    def test_preco_invalido_ou_ticker_sem_linha_gera_pendencia(self):
+        invalido = ref.avaliar_ativo(
+            _ativo_graham(),
+            1,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=set(),
+            modo="manual",
+            carga=self._carga(justo=10, teto=-1),
+        )
+        self.assertTrue(any(item.tipo == "pendencia" and item.categoria == "teto" for item in invalido))
+        self.assertFalse(any(item.tipo == "alerta" and item.categoria == "teto" for item in invalido))
+
+        sem_linha = ref.avaliar_ativo(
+            _ativo_graham(),
+            1,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=set(),
+            modo="manual",
+            carga=ref.CargaManual(True, {}),
+        )
+        self.assertTrue(any(item.tipo == "pendencia" for item in sem_linha))
+        self.assertTrue(any("ausente" in texto for item in sem_linha for texto in item.pendencias))
+        self.assertFalse(any(item.tipo == "alerta" and item.categoria == "teto" for item in sem_linha))
+
+    def test_arquivo_manual_ausente_nao_calcula_justo(self):
+        chamadas = []
+        original = ref.calcular_justo
+
+        def _vigia(bloco):
+            chamadas.append(bloco)
+            return original(bloco)
+
+        ref.calcular_justo = _vigia
+        try:
+            with tempfile.TemporaryDirectory() as pasta:
+                carga = ref.carregar_referencias_manuais(Path(pasta) / "ausente.json")
+            self.assertFalse(carga.ok)
+            sinais = ref.avaliar_ativo(
+                _ativo_graham(),
+                10,
+                hoje=HOJE,
+                validade_dias=45,
+                margem_pct=0,
+                episodios=set(),
+                modo="manual",
+                carga=carga,
+            )
+        finally:
+            ref.calcular_justo = original
+
+        self.assertEqual(chamadas, [])
+        self.assertTrue(sinais)
+        self.assertTrue(all(item.tipo == "pendencia" for item in sinais))
+        self.assertFalse(any(item.tipo == "alerta" for item in sinais))
+
+    def test_troca_de_modo_altera_so_a_chave_de_teto_do_ticker(self):
+        episodios = {
+            "alerta|teto|ITUB4.SA|desconto_sobre_justo|8.00000000",
+            "alerta|teto|BBSE3.SA|desconto_sobre_justo|9.00000000",
+            "alerta|faixa|B3SA3.SA|faixa|19.00000000|20.50000000",
+            "pendencia|justo|ITUB4.SA|data dos fundamentos vencida",
+        }
+        primeiro = ref.avaliar_ativo(
+            _ativo_graham(),
+            7.5,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=episodios,
+            modo="manual",
+            carga=self._carga(),
+        )
+        self.assertEqual([(item.tipo, item.categoria) for item in primeiro], [("alerta", "teto")])
+        self.assertIn("manual", primeiro[0].chave)
+        self.assertNotIn("alerta|teto|ITUB4.SA|desconto_sobre_justo|8.00000000", episodios)
+        self.assertIn("alerta|teto|BBSE3.SA|desconto_sobre_justo|9.00000000", episodios)
+        self.assertIn("alerta|faixa|B3SA3.SA|faixa|19.00000000|20.50000000", episodios)
+        self.assertIn("pendencia|justo|ITUB4.SA|data dos fundamentos vencida", episodios)
+
+        repetido = ref.avaliar_ativo(
+            _ativo_graham(),
+            7.5,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=episodios,
+            modo="manual",
+            carga=self._carga(),
+        )
+        self.assertEqual(repetido, [])
+
+    def test_atualizador_manual_nao_altera_maxima(self):
+        def abrir(_ticker):
+            raise AssertionError("não deveria coletar")
+
+        ativo = {
+            "ticker": "IVVB11.SA",
+            "preco_teto": {
+                "metodo": "max_52_semanas",
+                "desconto_pct": 0.05,
+                "maxima_52s": 461.49,
+                "data_cotacao": "2026-10-16",
+                "origem": "Yahoo Finance (fiftyTwoWeekHigh)",
+            },
+        }
+        dados = {"ativos": [ativo]}
+        resumo = atualizar_precos._atualizar_maximas_coletadas(
+            dados,
+            HOJE,
+            abrir=abrir,
+            modo="manual",
+        )
+        self.assertEqual(resumo.atualizados, [])
+        self.assertEqual(dados["ativos"][0]["preco_teto"]["maxima_52s"], 461.49)
+
+        with tempfile.TemporaryDirectory() as pasta:
+            raiz = Path(pasta)
+            (raiz / "config.local.json").write_text(
+                json.dumps({"referencias": {"modo": "manual"}}),
+                encoding="utf-8",
+            )
+            self.assertEqual(ref.modo_do_arquivo_config(raiz), "manual")
+            (raiz / "config.json").write_text(
+                json.dumps({"referencias": {"modo": "automatico"}}),
+                encoding="utf-8",
+            )
+            self.assertEqual(ref.modo_do_arquivo_config(raiz), "manual")
+
+        original = atualizar_precos.modo_do_arquivo_config
+        chamado = []
+
+        def _modo():
+            return "manual"
+
+        def _carregar():
+            chamado.append("carregar")
+            raise AssertionError("não deveria carregar referências")
+
+        atualizar_precos.modo_do_arquivo_config = _modo
+        atualizar_precos.carregar_referencias = _carregar
+        try:
+            atualizar_precos.executar_atualizacao()
+        finally:
+            atualizar_precos.modo_do_arquivo_config = original
+            atualizar_precos.carregar_referencias = ref.carregar_referencias
+        self.assertEqual(chamado, [])
+
+
 if __name__ == "__main__":
     unittest.main()

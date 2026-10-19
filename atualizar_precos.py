@@ -12,6 +12,7 @@ from referencias import (
     carregar_referencias,
     hoje_brasilia,
     linhas_status,
+    modo_do_arquivo_config,
     salvar_referencias,
 )
 
@@ -144,8 +145,15 @@ def formatar_resumo(resumo: ResumoAtualizacao) -> str:
     )
 
 
-def _atualizar_maximas_coletadas(dados: dict, hoje: date, abrir=None) -> ResumoAtualizacao:
+def _atualizar_maximas_coletadas(
+    dados: dict,
+    hoje: date,
+    abrir=None,
+    modo: str = "automatico",
+) -> ResumoAtualizacao:
     """Atualiza só a máxima de 52 semanas e a origem da coleta. O desconto permanece."""
+    if isinstance(modo, str) and modo.strip().lower() == "manual":
+        return ResumoAtualizacao()
     resumo = ResumoAtualizacao()
     data_cotacao = hoje.isoformat()
     for ativo in dados.get("ativos") or []:
@@ -170,6 +178,13 @@ def _atualizar_maximas_coletadas(dados: dict, hoje: date, abrir=None) -> ResumoA
 
 
 def executar_atualizacao() -> None:
+    if modo_do_arquivo_config() == "manual":
+        print(
+            "Modo manual ativo. Preço justo e preço teto não são recalculados. "
+            "Nenhuma máxima de 52 semanas foi coletada ou gravada."
+        )
+        return
+
     try:
         dados = carregar_referencias()
     except Exception as exc:

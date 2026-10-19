@@ -1,0 +1,4 @@
+{
+  "comment": "Usado somente quando referencias.modo é manual. ticker igual ao de data/referencias_precos.json. preco_justo e preco_teto são números em reais, ou null. Não inclua faixa nem fórmula.",
+  "ativos": []
+}

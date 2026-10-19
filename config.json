@@ -17,6 +17,10 @@
     "fundamentals_update_reminder_day": 1,
     "fundamentals_update_reminder_time": "21:00"
   },
+  "referencias": {
+    "modo": "automatico",
+    "comment": "automatico calcula data/referencias_precos.json. manual usa somente os números de data/referencias_manuais.json para preço justo e preço teto. Ausência ou valor inválido permanece automático. Faixas e ordens não dependem desta flag."
+  },
   "estrategias": {
     "max_52_semanas": {
       "descricao": "Desconto sobre a Máxima de 52 Semanas",
