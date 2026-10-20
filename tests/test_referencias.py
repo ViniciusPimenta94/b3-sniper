@@ -989,7 +989,7 @@ class ModoManualTest(unittest.TestCase):
             self.assertEqual(alertas[0].label, "Outro nome")
             self.assertFalse(any(item.categoria == "teto" and item.tipo == "alerta" for item in sinais))
 
-    def test_preco_invalido_ou_ticker_sem_linha_gera_pendencia(self):
+    def test_preco_invalido_gera_pendencia_e_ticker_sem_linha_nao(self):
         invalido = ref.avaliar_ativo(
             _ativo_graham(),
             1,
@@ -1003,6 +1003,7 @@ class ModoManualTest(unittest.TestCase):
         self.assertTrue(any(item.tipo == "pendencia" and item.categoria == "teto" for item in invalido))
         self.assertFalse(any(item.tipo == "alerta" and item.categoria == "teto" for item in invalido))
 
+        # Sem cadastro em referencias_manuais: ausência intencional de justo/teto.
         sem_linha = ref.avaliar_ativo(
             _ativo_graham(),
             1,
@@ -1013,9 +1014,49 @@ class ModoManualTest(unittest.TestCase):
             modo="manual",
             carga=ref.CargaManual(True, {}),
         )
-        self.assertTrue(any(item.tipo == "pendencia" for item in sem_linha))
-        self.assertTrue(any("ausente" in texto for item in sem_linha for texto in item.pendencias))
-        self.assertFalse(any(item.tipo == "alerta" and item.categoria == "teto" for item in sem_linha))
+        self.assertEqual(sem_linha, [])
+        calculado = ref.calcular_referencias_manuais(_ativo_graham(), ref.CargaManual(True, {}))
+        self.assertEqual(calculado.problemas_justo, [])
+        self.assertEqual(calculado.problemas_teto, [])
+        self.assertIsNone(calculado.justo)
+        self.assertIsNone(calculado.teto)
+        self.assertFalse(calculado.emitir_teto)
+
+    def test_manual_com_referencia_continua_alertando_teto(self):
+        sinais = ref.avaliar_ativo(
+            _ativo_graham(),
+            7.5,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=set(),
+            modo="manual",
+            carga=self._carga(justo=10, teto=7.5),
+        )
+        alertas = [item for item in sinais if item.tipo == "alerta"]
+        self.assertEqual([(item.categoria, item.referencia) for item in alertas], [("teto", 7.5)])
+        self.assertFalse(any(item.tipo == "pendencia" for item in sinais))
+
+    def test_faixa_sem_referencia_manual_continua_independente(self):
+        ativo = {
+            "ticker": "B3SA3.SA",
+            "nome_amigavel": "B3",
+            "faixa": {"preco_minimo": 19, "preco_maximo": 20.5},
+        }
+        sinais = ref.avaliar_ativo(
+            ativo,
+            19.5,
+            hoje=HOJE,
+            validade_dias=45,
+            margem_pct=0,
+            episodios=set(),
+            modo="manual",
+            carga=ref.CargaManual(True, {}),
+        )
+        self.assertEqual([(item.tipo, item.categoria) for item in sinais], [("alerta", "faixa")])
+        self.assertEqual(sinais[0].referencia, 19)
+        self.assertEqual(sinais[0].referencia_fim, 20.5)
+        self.assertFalse(any(item.categoria in {"justo", "teto"} for item in sinais))
 
     def test_arquivo_manual_ausente_nao_calcula_justo(self):
         chamadas = []

@@ -332,10 +332,9 @@ def calcular_referencias_manuais(
         resultado.problemas_teto.append(mensagem)
     else:
         linha = carga.por_ticker.get(ticker)
-        if not isinstance(linha, dict):
-            resultado.problemas_justo.append("preço manual ausente")
-            resultado.problemas_teto.append("preço manual ausente")
-        else:
+        # Sem linha no arquivo manual: ausência intencional. Só quem está
+        # cadastrado gera pendência/alerta de justo e teto.
+        if isinstance(linha, dict):
             justo, problemas_justo = _interpretar_preco_manual(linha.get("preco_justo"), "preco_justo")
             teto, problemas_teto = _interpretar_preco_manual(linha.get("preco_teto"), "preco_teto")
             resultado.problemas_justo.extend(problemas_justo)
