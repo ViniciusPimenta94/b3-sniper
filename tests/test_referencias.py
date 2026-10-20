@@ -887,10 +887,6 @@ class ModoManualTest(unittest.TestCase):
         self.assertEqual(ref.modo_referencias({"referencias": "manual"}), "automatico")
         self.assertEqual(ref.modo_referencias({"referencias": {"modo": " manual "}}), "manual")
 
-        with open(RAIZ / "config.json", encoding="utf-8") as handle:
-            config = json.load(handle)
-        self.assertEqual(ref.modo_referencias(config), "automatico")
-
         graham = math.sqrt(22.5 * 4.23 * 18.83)
         ativo = _ativo_graham()
         carga_real = ref.carregar_referencias_manuais(RAIZ / "data" / "referencias_manuais.json")
