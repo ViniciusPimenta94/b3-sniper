@@ -1,4 +1,83 @@
 {
   "comment": "Usado somente quando referencias.modo é manual. ticker igual ao de data/referencias_precos.json. preco_justo e preco_teto são números em reais, ou null. Não inclua faixa nem fórmula.",
-  "ativos": []
+  "ativos": [
+    {
+      "ticker": "IVVB11.SA",
+      "nome": "S&P 500 ETF",
+      "preco_justo": 440.08,
+      "preco_teto": 458.85
+    },
+    {
+      "ticker": "WRLD11.SA",
+      "nome": "Global Stocks ETF",
+      "preco_justo": 144.11,
+      "preco_teto": 154.02
+    },
+    {
+      "ticker": "BBSE3.SA",
+      "nome": "BB Seguridade",
+      "preco_justo": 20.73,
+      "preco_teto": 66.33
+    },
+    {
+      "ticker": "ITUB4.SA",
+      "nome": "Itaú Unibanco",
+      "preco_justo": 45.06,
+      "preco_teto": 51.83
+    },
+    {
+      "ticker": "TAEE11.SA",
+      "nome": "Taesa",
+      "preco_justo": 49.87,
+      "preco_teto": 50.16
+    },
+    {
+      "ticker": "WEGE3.SA",
+      "nome": "WEG",
+      "preco_justo": 12.35,
+      "preco_teto": 34.0
+    },
+    {
+      "ticker": "VISC11.SA",
+      "nome": "Vinci Shopping",
+      "preco_justo": 113.6,
+      "preco_teto": 126.0
+    },
+    {
+      "ticker": "XPLG11.SA",
+      "nome": "XP Logística",
+      "preco_justo": 105.24,
+      "preco_teto": 123.0
+    },
+    {
+      "ticker": "PVBI11.SA",
+      "nome": "VBI Prime Offices",
+      "preco_justo": 73.2,
+      "preco_teto": 62.37
+    },
+    {
+      "ticker": "BTHF11.SA",
+      "nome": "BTG Pactual Hedge Fund",
+      "preco_justo": 10.14,
+      "preco_teto": 13.5
+    },
+    {
+      "ticker": "CPTS11.SA",
+      "nome": "Capitania Securities II",
+      "preco_justo": 8.79,
+      "preco_teto": 13.5
+    },
+    {
+      "ticker": "TOTS3.SA",
+      "nome": "TOTVS",
+      "preco_justo": 22.87,
+      "preco_teto": 11.33
+    },
+    {
+      "ticker": "TIMS3.SA",
+      "nome": "TIM Brasil",
+      "preco_justo": 20.32,
+      "preco_teto": 24.5
+    }
+  ]
 }

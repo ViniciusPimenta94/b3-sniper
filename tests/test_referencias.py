@@ -893,13 +893,55 @@ class ModoManualTest(unittest.TestCase):
 
         graham = math.sqrt(22.5 * 4.23 * 18.83)
         ativo = _ativo_graham()
-        calculado = ref.calcular_referencias(ativo, HOJE, 45, modo="automatico", carga=self._carga())
-        self.assertAlmostEqual(calculado.justo, graham)
-        self.assertFalse(calculado.emitir_teto)
-
         carga_real = ref.carregar_referencias_manuais(RAIZ / "data" / "referencias_manuais.json")
         self.assertTrue(carga_real.ok)
-        self.assertEqual(carga_real.por_ticker, {})
+        self.assertIn("ITUB4.SA", carga_real.por_ticker)
+        # Com flag automática, números manuais não substituem a fórmula.
+        calculado = ref.calcular_referencias(
+            ativo, HOJE, 45, modo="automatico", carga=carga_real
+        )
+        self.assertAlmostEqual(calculado.justo, graham)
+        self.assertFalse(calculado.emitir_teto)
+        self.assertNotEqual(
+            calculado.justo,
+            carga_real.por_ticker["ITUB4.SA"]["preco_justo"],
+        )
+
+    def test_config_local_prevalece_e_ativa_modo_manual(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            raiz = Path(pasta)
+            (raiz / "config.json").write_text(
+                json.dumps(
+                    {
+                        "telegram": {"chat_id": "do-config"},
+                        "referencias": {"modo": "automatico"},
+                        "schedule": {"interval_minutes": 60},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            local = {
+                "telegram": {"chat_id": "do-local"},
+                "referencias": {"modo": "manual"},
+                "schedule": {"interval_minutes": 30},
+                "campo_extra": "preservado",
+            }
+            (raiz / "config.local.json").write_text(
+                json.dumps(local),
+                encoding="utf-8",
+            )
+            self.assertEqual(ref.modo_do_arquivo_config(raiz), "manual")
+
+            with open(raiz / "config.local.json", encoding="utf-8") as handle:
+                lido = json.load(handle)
+            self.assertEqual(lido["telegram"]["chat_id"], "do-local")
+            self.assertEqual(lido["schedule"]["interval_minutes"], 30)
+            self.assertEqual(lido["campo_extra"], "preservado")
+            self.assertEqual(lido["referencias"]["modo"], "manual")
+            self.assertEqual(ref.modo_referencias(lido), "manual")
+
+            (raiz / "config.local.json").unlink()
+            self.assertEqual(ref.modo_do_arquivo_config(raiz), "automatico")
 
     def test_manual_usa_teto_numerico_mesmo_com_graham(self):
         ativo = _ativo_graham()
