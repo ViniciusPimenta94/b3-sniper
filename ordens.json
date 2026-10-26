@@ -1,15 +1,10 @@
 {
-  "comment": "Ordens de compra na corretora. ticker: CMIG4 ou CMIG4.SA. preco_ordem: valor limite da ordem.",
+  "comment": "Ordens de compra na corretora. ticker: código com ou sem o sufixo .SA. preco_ordem: valor limite da ordem.",
   "ordens": [
     {
-      "ticker": "VISC11",
-      "nome_amigavel": "Vinci Shopping",
-      "preco_ordem": 99.0
-    },
-    {
-      "ticker": "BTHF11",
-      "nome_amigavel": "BTG Pactual Hedge Fund",
-      "preco_ordem": 8.2
+      "ticker": "BBDC3",
+      "nome_amigavel": "Banco Bradesco",
+      "preco_ordem": 14.0
     },
     {
       "ticker": "XPLG11",
@@ -30,21 +25,6 @@
       "ticker": "TAEE11",
       "nome_amigavel": "Taesa",
       "preco_ordem": 38.5
-    },
-    {
-      "ticker": "TOTS3",
-      "nome_amigavel": "TOTVS",
-      "preco_ordem": 31.5
-    },
-    {
-      "ticker": "SBSP3",
-      "nome_amigavel": "Sabesp",
-      "preco_ordem": 24.5
-    },
-    {
-      "ticker": "CMIG4",
-      "nome_amigavel": "Cemig",
-      "preco_ordem": 10.2
     }
   ]
 }
