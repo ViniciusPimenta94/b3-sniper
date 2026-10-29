@@ -10,6 +10,21 @@
       "ticker": "TAEE11",
       "nome_amigavel": "Taesa",
       "preco_ordem": 39.0
+    },
+    {
+      "ticker": "ABEV3",
+      "nome_amigavel": "Ambev",
+      "preco_ordem": 14.0
+    },
+    {
+      "ticker": "BTHF11",
+      "nome_amigavel": "BTG Pactual Hedge Fund",
+      "preco_ordem": 8.0
+    },
+    {
+      "ticker": "CPTS11",
+      "nome_amigavel": "Capitânia Securities II",
+      "preco_ordem": 6.8
     }
   ]
 }
