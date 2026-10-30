@@ -2,16 +2,6 @@
   "comment": "Ordens de compra na corretora. ticker: código com ou sem o sufixo .SA. preco_ordem: valor limite da ordem.",
   "ordens": [
     {
-      "ticker": "XPLG11",
-      "nome_amigavel": "XP Logística",
-      "preco_ordem": 89.0
-    },
-    {
-      "ticker": "TAEE11",
-      "nome_amigavel": "Taesa",
-      "preco_ordem": 39.0
-    },
-    {
       "ticker": "ABEV3",
       "nome_amigavel": "Ambev",
       "preco_ordem": 14.0
