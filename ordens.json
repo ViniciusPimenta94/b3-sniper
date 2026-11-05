@@ -7,6 +7,11 @@
       "preco_ordem": 14.0
     },
     {
+      "ticker": "BTHF11",
+      "nome_amigavel": "BTG Pactual Hedge Fund",
+      "preco_ordem": 8.0
+    },
+    {
       "ticker": "CPTS11",
       "nome_amigavel": "Capitânia Securities II",
       "preco_ordem": 6.6
@@ -40,6 +45,18 @@
       "ticker": "TIMS3",
       "nome_amigavel": "TIM",
       "preco_ordem": 18.5
+    },
+    {
+      "ticker": "PSSA3",
+      "nome_amigavel": "Porto Seguro",
+      "quantidade": 10,
+      "preco_ordem": 42.0
+    },
+    {
+      "ticker": "KLBN11",
+      "nome_amigavel": "Klabin",
+      "quantidade": 10,
+      "preco_ordem": 17.0
     }
   ]
 }
