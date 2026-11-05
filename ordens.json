@@ -7,14 +7,39 @@
       "preco_ordem": 14.0
     },
     {
-      "ticker": "BTHF11",
-      "nome_amigavel": "BTG Pactual Hedge Fund",
-      "preco_ordem": 8.0
-    },
-    {
       "ticker": "CPTS11",
       "nome_amigavel": "Capitânia Securities II",
-      "preco_ordem": 6.8
+      "preco_ordem": 6.6
+    },
+    {
+      "ticker": "PVBI11",
+      "nome_amigavel": "VBI Prime Properties",
+      "preco_ordem": 52.5
+    },
+    {
+      "ticker": "XPLG11",
+      "nome_amigavel": "XP Log",
+      "preco_ordem": 84.5
+    },
+    {
+      "ticker": "VISC11",
+      "nome_amigavel": "Vinci Shopping Centers",
+      "preco_ordem": 92.5
+    },
+    {
+      "ticker": "TOTS3",
+      "nome_amigavel": "Totvs",
+      "preco_ordem": 30.0
+    },
+    {
+      "ticker": "WEGE3",
+      "nome_amigavel": "WEG",
+      "preco_ordem": 44.0
+    },
+    {
+      "ticker": "TIMS3",
+      "nome_amigavel": "TIM",
+      "preco_ordem": 18.5
     }
   ]
 }
