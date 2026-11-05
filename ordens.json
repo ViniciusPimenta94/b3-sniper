@@ -2,16 +2,6 @@
   "comment": "Ordens de compra na corretora. ticker: código com ou sem o sufixo .SA. preco_ordem: valor limite da ordem.",
   "ordens": [
     {
-      "ticker": "ABEV3",
-      "nome_amigavel": "Ambev",
-      "preco_ordem": 14.0
-    },
-    {
-      "ticker": "BTHF11",
-      "nome_amigavel": "BTG Pactual Hedge Fund",
-      "preco_ordem": 8.0
-    },
-    {
       "ticker": "CPTS11",
       "nome_amigavel": "Capitânia Securities II",
       "preco_ordem": 6.6
@@ -30,6 +20,11 @@
       "ticker": "VISC11",
       "nome_amigavel": "Vinci Shopping Centers",
       "preco_ordem": 92.5
+    },
+    {
+      "ticker": "ABEV3",
+      "nome_amigavel": "Ambev",
+      "preco_ordem": 14.0
     },
     {
       "ticker": "TOTS3",
