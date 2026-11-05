@@ -44,13 +44,11 @@
     {
       "ticker": "PSSA3",
       "nome_amigavel": "Porto Seguro",
-      "quantidade": 10,
       "preco_ordem": 42.0
     },
     {
       "ticker": "KLBN11",
       "nome_amigavel": "Klabin",
-      "quantidade": 10,
       "preco_ordem": 17.0
     }
   ]
