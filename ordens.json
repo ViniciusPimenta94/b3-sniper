@@ -50,6 +50,11 @@
       "ticker": "KLBN11",
       "nome_amigavel": "Klabin",
       "preco_ordem": 17.0
+    },
+    {
+      "ticker": "PETR4",
+      "nome_amigavel": "Petrobras",
+      "preco_ordem": 44.0
     }
   ]
 }
