@@ -22,6 +22,16 @@
       "preco_ordem": 92.5
     },
     {
+      "ticker": "ALZR11",
+      "nome_amigavel": "Alianza Trust Renda Imobiliária",
+      "preco_ordem": 9.4
+    },
+    {
+      "ticker": "HGRU11",
+      "nome_amigavel": "Pátria Renda Urbana",
+      "preco_ordem": 110.0
+    },
+    {
       "ticker": "ABEV3",
       "nome_amigavel": "Ambev",
       "preco_ordem": 14.0
