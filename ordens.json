@@ -22,14 +22,19 @@
       "preco_ordem": 92.5
     },
     {
-      "ticker": "ALZR11",
-      "nome_amigavel": "Alianza Trust Renda Imobiliária",
-      "preco_ordem": 9.4
-    },
-    {
       "ticker": "HGRU11",
       "nome_amigavel": "Pátria Renda Urbana",
-      "preco_ordem": 110.0
+      "preco_ordem": 108.0
+    },
+    {
+      "ticker": "KNCR11",
+      "nome_amigavel": "Kinea Rendimentos Imobiliários",
+      "preco_ordem": 100.0
+    },
+    {
+      "ticker": "BRCO11",
+      "nome_amigavel": "Bresco Logística",
+      "preco_ordem": 102.0
     },
     {
       "ticker": "ABEV3",
@@ -60,11 +65,6 @@
       "ticker": "KLBN11",
       "nome_amigavel": "Klabin",
       "preco_ordem": 17.0
-    },
-    {
-      "ticker": "PETR4",
-      "nome_amigavel": "Petrobras",
-      "preco_ordem": 44.0
     }
   ]
 }
