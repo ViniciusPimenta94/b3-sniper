@@ -62,6 +62,11 @@
       "preco_ordem": 42.0
     },
     {
+      "ticker": "BBDC4",
+      "nome_amigavel": "Bradesco",
+      "preco_ordem": 14.0
+    },
+    {
       "ticker": "KLBN11",
       "nome_amigavel": "Klabin",
       "preco_ordem": 17.0
