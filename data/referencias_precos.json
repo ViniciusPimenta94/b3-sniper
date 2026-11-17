@@ -44,7 +44,10 @@
         "metodo": "desconto_sobre_justo",
         "desconto_pct": 0.15
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 33.0,
+        "preco_maximo": 35.0
+      }
     },
     {
       "ticker": "ITUB4.SA",
@@ -60,7 +63,10 @@
         "metodo": "desconto_sobre_justo",
         "desconto_pct": 0.25
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 37.0,
+        "preco_maximo": 39.0
+      }
     },
     {
       "ticker": "TAEE11.SA",
@@ -76,7 +82,10 @@
         "metodo": "desconto_sobre_justo",
         "desconto_pct": 0.25
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 38.0,
+        "preco_maximo": 40.0
+      }
     },
     {
       "ticker": "WEGE3.SA",
@@ -89,14 +98,17 @@
         "data_cotacao": "2026-10-16",
         "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 41.0,
+        "preco_maximo": 45.0
+      }
     },
     {
       "ticker": "VISC11.SA",
       "nome_amigavel": "Vinci Shopping",
       "preco_justo": {
         "metodo": "fii_vp",
-        "vpa": 115.60,
+        "vpa": 115.6,
         "origem": "Status Invest",
         "data_fundamentos": "2026-10-16"
       },
@@ -212,7 +224,10 @@
         "metodo": "desconto_sobre_justo",
         "desconto_pct": 0.25
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 23.0,
+        "preco_maximo": 25.0
+      }
     },
     {
       "ticker": "CMIG4.SA",
@@ -228,7 +243,10 @@
         "metodo": "desconto_sobre_justo",
         "desconto_pct": 0.25
       },
-      "faixa": null
+      "faixa": {
+        "preco_minimo": 9.8,
+        "preco_maximo": 10.3
+      }
     },
     {
       "ticker": "B3SA3.SA",
@@ -246,8 +264,8 @@
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 29,
-        "preco_maximo": 32
+        "preco_minimo": 16.5,
+        "preco_maximo": 18.0
       }
     },
     {
@@ -278,6 +296,26 @@
       "faixa": {
         "preco_minimo": 47,
         "preco_maximo": 51
+      }
+    },
+    {
+      "ticker": "RADL3.SA",
+      "nome_amigavel": "Raia Drogasil",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 12.0,
+        "preco_maximo": 13.0
+      }
+    },
+    {
+      "ticker": "BBDC3.SA",
+      "nome_amigavel": "Bradesco",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 11.5,
+        "preco_maximo": 12.3
       }
     }
   ]
