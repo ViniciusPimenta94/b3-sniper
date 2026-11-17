@@ -4,17 +4,22 @@
     {
       "ticker": "XPLG11",
       "nome_amigavel": "XP Log",
-      "preco_ordem": 84.5
+      "preco_ordem": 87.0
     },
     {
       "ticker": "VISC11",
       "nome_amigavel": "Vinci Shopping Centers",
-      "preco_ordem": 92.5
+      "preco_ordem": 95.0
     },
     {
       "ticker": "HGRU11",
       "nome_amigavel": "Pátria Renda Urbana",
-      "preco_ordem": 108.0
+      "preco_ordem": 111.0
+    },    
+    {
+      "ticker": "ABEV3",
+      "nome_amigavel": "Ambev S.A",
+      "preco_ordem": 14.0
     },
     {
       "ticker": "TOTS3",
