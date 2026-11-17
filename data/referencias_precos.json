@@ -1,12 +1,13 @@
 {
   "versao": 1,
-  "comment": "Preço justo (Graham, Bazin, manual ou FII), preço teto (desconto sobre o justo ou máxima de 52 semanas) e faixa personalizada. Fundamentos consultados em 14/10/2026 no Fundamentus: LPA trailing 12 meses; VPA do 2T26; proventos brutos de 12 meses, incluindo JCP. Yield em fração (0,08 = 8%). Desconto em fração (0,05 = 5%). Validade contada a partir da data informada.",
+  "comment": "Monitoramento de ações, FIIs e ETFs. Preço justo pelos métodos Graham, Bazin ou FII; preço teto por desconto sobre o justo ou máxima de 52 semanas; faixa personalizada de acompanhamento. Fundamentos originais consultados em outubro de 2026. Valores de faixas são referências operacionais, não necessariamente avaliações de preço justo. Yield e descontos em fração (0.08 = 8%; 0.05 = 5%).",
   "validade_dias": 45,
   "margem_proximidade_pct": 0,
   "ativos": [
     {
       "ticker": "IVVB11.SA",
       "nome_amigavel": "S&P 500 ETF",
+      "categoria": "ETFs",
       "preco_justo": null,
       "preco_teto": {
         "metodo": "max_52_semanas",
@@ -23,6 +24,7 @@
     {
       "ticker": "WRLD11.SA",
       "nome_amigavel": "Global Stocks ETF",
+      "categoria": "ETFs",
       "preco_justo": null,
       "preco_teto": {
         "metodo": "max_52_semanas",
@@ -39,6 +41,7 @@
     {
       "ticker": "BBSE3.SA",
       "nome_amigavel": "BB Seguridade",
+      "categoria": "Acoes",
       "preco_justo": {
         "metodo": "bazin",
         "dividendos_12m": 4.5901,
@@ -58,6 +61,7 @@
     {
       "ticker": "ITUB4.SA",
       "nome_amigavel": "Itaú Unibanco",
+      "categoria": "Acoes",
       "preco_justo": {
         "metodo": "graham",
         "lpa": 4.23,
@@ -77,6 +81,7 @@
     {
       "ticker": "TAEE11.SA",
       "nome_amigavel": "Taesa",
+      "categoria": "Acoes",
       "preco_justo": {
         "metodo": "graham",
         "lpa": 4.72,
@@ -96,6 +101,7 @@
     {
       "ticker": "WEGE3.SA",
       "nome_amigavel": "WEG",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": {
         "metodo": "max_52_semanas",
@@ -110,62 +116,9 @@
       }
     },
     {
-      "ticker": "PVBI11.SA",
-      "nome_amigavel": "VBI Prime Offices",
-      "preco_justo": {
-        "metodo": "fii_vp",
-        "vpa": 104.53,
-        "origem": "Status Invest",
-        "data_fundamentos": "2026-10-16"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
-      },
-      "faixa": {
-        "preco_minimo": 56.0,
-        "preco_maximo": 59.0
-      }
-    },
-    {
-      "ticker": "BTHF11.SA",
-      "nome_amigavel": "BTG Pactual Hedge Fund",
-      "preco_justo": {
-        "metodo": "fii_vp",
-        "vpa": 9.86,
-        "origem": "Status Invest",
-        "data_fundamentos": "2026-10-16"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
-      },
-      "faixa": {
-        "preco_minimo": 7.5,
-        "preco_maximo": 7.8
-      }
-    },
-    {
-      "ticker": "CPTS11.SA",
-      "nome_amigavel": "Capitania Securities II",
-      "preco_justo": {
-        "metodo": "fii_vp",
-        "vpa": 8.65,
-        "origem": "Status Invest",
-        "data_fundamentos": "2026-10-16"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0
-      },
-      "faixa": {
-        "preco_minimo": 6.3,
-        "preco_maximo": 6.6
-      }
-    },
-    {
       "ticker": "SBSP3.SA",
       "nome_amigavel": "Sabesp",
+      "categoria": "Acoes",
       "preco_justo": {
         "metodo": "graham",
         "lpa": 2.28,
@@ -185,6 +138,7 @@
     {
       "ticker": "CMIG4.SA",
       "nome_amigavel": "Cemig",
+      "categoria": "Acoes",
       "preco_justo": {
         "metodo": "graham",
         "lpa": 1.61,
@@ -204,16 +158,18 @@
     {
       "ticker": "B3SA3.SA",
       "nome_amigavel": "B3",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 19,
+        "preco_minimo": 19.0,
         "preco_maximo": 20.5
       }
     },
     {
       "ticker": "CYRE3.SA",
       "nome_amigavel": "Cyrela",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
@@ -224,36 +180,40 @@
     {
       "ticker": "CEAB3.SA",
       "nome_amigavel": "C&A",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 11,
-        "preco_maximo": 12
+        "preco_minimo": 11.0,
+        "preco_maximo": 12.0
       }
     },
     {
       "ticker": "BBAS3.SA",
       "nome_amigavel": "Banco do Brasil",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 20,
-        "preco_maximo": 22
+        "preco_minimo": 20.0,
+        "preco_maximo": 22.0
       }
     },
     {
       "ticker": "PETR4.SA",
       "nome_amigavel": "Petrobras PN",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 47,
-        "preco_maximo": 51
+        "preco_minimo": 47.0,
+        "preco_maximo": 51.0
       }
     },
     {
       "ticker": "RADL3.SA",
       "nome_amigavel": "Raia Drogasil",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
@@ -264,129 +224,18 @@
     {
       "ticker": "BBDC3.SA",
       "nome_amigavel": "Bradesco",
+      "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
         "preco_minimo": 11.5,
         "preco_maximo": 12.3
       }
-    }
-  ]
-}
-{
-  "versao": 1,
-  "comment": "Preço justo (Graham, Bazin, manual ou FII), preço teto (desconto sobre o justo ou máxima de 52 semanas) e faixa personalizada. Fundamentos consultados em 14/10/2026 no Fundamentus: LPA trailing 12 meses; VPA do 2T26; proventos brutos de 12 meses, incluindo JCP. Yield em fração (0,08 = 8%). Desconto em fração (0,05 = 5%). Validade contada a partir da data informada.",
-  "validade_dias": 45,
-  "margem_proximidade_pct": 0,
-  "ativos": [
-    {
-      "ticker": "IVVB11.SA",
-      "nome_amigavel": "S&P 500 ETF",
-      "preco_justo": null,
-      "preco_teto": {
-        "metodo": "max_52_semanas",
-        "desconto_pct": 0.05,
-        "maxima_52s": 461.49,
-        "data_cotacao": "2026-10-16",
-        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
-      },
-      "faixa": {
-        "preco_minimo": 440.0,
-        "preco_maximo": 465.0
-      }
-    },
-    {
-      "ticker": "WRLD11.SA",
-      "nome_amigavel": "Global Stocks ETF",
-      "preco_justo": null,
-      "preco_teto": {
-        "metodo": "max_52_semanas",
-        "desconto_pct": 0.05,
-        "maxima_52s": 154.02,
-        "data_cotacao": "2026-10-16",
-        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
-      },
-      "faixa": {
-        "preco_minimo": 145.0,
-        "preco_maximo": 153.0
-      }
-    },
-    {
-      "ticker": "BBSE3.SA",
-      "nome_amigavel": "BB Seguridade",
-      "preco_justo": {
-        "metodo": "bazin",
-        "dividendos_12m": 4.5901,
-        "yield_alvo": 0.08,
-        "origem": "Fundamentus (proventos brutos em 12 meses, incluindo JCP)",
-        "data_fundamentos": "2026-10-14"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0.15
-      },
-      "faixa": {
-        "preco_minimo": 33.0,
-        "preco_maximo": 35.0
-      }
-    },
-    {
-      "ticker": "ITUB4.SA",
-      "nome_amigavel": "Itaú Unibanco",
-      "preco_justo": {
-        "metodo": "graham",
-        "lpa": 4.23,
-        "vpa": 18.83,
-        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
-        "data_fundamentos": "2026-10-14"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0.25
-      },
-      "faixa": {
-        "preco_minimo": 37.0,
-        "preco_maximo": 39.0
-      }
-    },
-    {
-      "ticker": "TAEE11.SA",
-      "nome_amigavel": "Taesa",
-      "preco_justo": {
-        "metodo": "graham",
-        "lpa": 4.72,
-        "vpa": 23.43,
-        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
-        "data_fundamentos": "2026-10-14"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0.25
-      },
-      "faixa": {
-        "preco_minimo": 38.0,
-        "preco_maximo": 40.0
-      }
-    },
-    {
-      "ticker": "WEGE3.SA",
-      "nome_amigavel": "WEG",
-      "preco_justo": null,
-      "preco_teto": {
-        "metodo": "max_52_semanas",
-        "desconto_pct": 0.05,
-        "maxima_52s": 54.53,
-        "data_cotacao": "2026-10-16",
-        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
-      },
-      "faixa": {
-        "preco_minimo": 41.0,
-        "preco_maximo": 45.0
-      }
     },
     {
       "ticker": "PVBI11.SA",
       "nome_amigavel": "VBI Prime Offices",
+      "categoria": "FIIs",
       "preco_justo": {
         "metodo": "fii_vp",
         "vpa": 104.53,
@@ -405,6 +254,7 @@
     {
       "ticker": "BTHF11.SA",
       "nome_amigavel": "BTG Pactual Hedge Fund",
+      "categoria": "FIIs",
       "preco_justo": {
         "metodo": "fii_vp",
         "vpa": 9.86,
@@ -423,6 +273,7 @@
     {
       "ticker": "CPTS11.SA",
       "nome_amigavel": "Capitania Securities II",
+      "categoria": "FIIs",
       "preco_justo": {
         "metodo": "fii_vp",
         "vpa": 8.65,
@@ -439,111 +290,80 @@
       }
     },
     {
-      "ticker": "SBSP3.SA",
-      "nome_amigavel": "Sabesp",
-      "preco_justo": {
-        "metodo": "graham",
-        "lpa": 2.28,
-        "vpa": 12.82,
-        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
-        "data_fundamentos": "2026-10-14"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0.25
-      },
-      "faixa": {
-        "preco_minimo": 23.0,
-        "preco_maximo": 25.0
-      }
-    },
-    {
-      "ticker": "CMIG4.SA",
-      "nome_amigavel": "Cemig",
-      "preco_justo": {
-        "metodo": "graham",
-        "lpa": 1.61,
-        "vpa": 10.2,
-        "origem": "Fundamentus (LPA em 12 meses e VPA do 2T26)",
-        "data_fundamentos": "2026-10-14"
-      },
-      "preco_teto": {
-        "metodo": "desconto_sobre_justo",
-        "desconto_pct": 0.25
-      },
-      "faixa": {
-        "preco_minimo": 9.8,
-        "preco_maximo": 10.3
-      }
-    },
-    {
-      "ticker": "B3SA3.SA",
-      "nome_amigavel": "B3",
+      "ticker": "VISC11.SA",
+      "nome_amigavel": "Vinci Shopping Centers",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 19,
-        "preco_maximo": 20.5
+        "preco_minimo": 92.5,
+        "preco_maximo": 95.0
       }
     },
     {
-      "ticker": "CYRE3.SA",
-      "nome_amigavel": "Cyrela",
+      "ticker": "XPLG11.SA",
+      "nome_amigavel": "XP Log",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 16.5,
-        "preco_maximo": 18.0
+        "preco_minimo": 84.5,
+        "preco_maximo": 87.0
       }
     },
     {
-      "ticker": "CEAB3.SA",
-      "nome_amigavel": "C&A",
+      "ticker": "KNCR11.SA",
+      "nome_amigavel": "Kinea Rendimentos Imobiliários",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 11,
-        "preco_maximo": 12
+        "preco_minimo": 100.0,
+        "preco_maximo": 100.0
       }
     },
     {
-      "ticker": "BBAS3.SA",
-      "nome_amigavel": "Banco do Brasil",
+      "ticker": "BRCO11.SA",
+      "nome_amigavel": "Bresco Logística",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 20,
-        "preco_maximo": 22
+        "preco_minimo": 101.0,
+        "preco_maximo": 103.0
       }
     },
     {
-      "ticker": "PETR4.SA",
-      "nome_amigavel": "Petrobras PN",
+      "ticker": "HGRU11.SA",
+      "nome_amigavel": "Pátria Renda Urbana",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 47,
-        "preco_maximo": 51
+        "preco_minimo": 108.0,
+        "preco_maximo": 111.0
       }
     },
     {
-      "ticker": "RADL3.SA",
-      "nome_amigavel": "Raia Drogasil",
+      "ticker": "ALZR11.SA",
+      "nome_amigavel": "Alianza Trust Renda Imobiliária",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 12.0,
-        "preco_maximo": 13.0
+        "preco_minimo": 9.3,
+        "preco_maximo": 9.4
       }
     },
     {
-      "ticker": "BBDC3.SA",
-      "nome_amigavel": "Bradesco",
+      "ticker": "KNRI11.SA",
+      "nome_amigavel": "Kinea Renda Imobiliária",
+      "categoria": "FIIs",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 11.5,
-        "preco_maximo": 12.3
+        "preco_minimo": 140.0,
+        "preco_maximo": 142.0
       }
     }
   ]
