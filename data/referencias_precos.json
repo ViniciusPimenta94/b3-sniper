@@ -365,6 +365,94 @@
         "preco_minimo": 140.0,
         "preco_maximo": 142.0
       }
+    },
+    {
+      "ticker": "FLRY3.SA",
+      "nome_amigavel": "Fleury",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 17.0,
+        "preco_maximo": 19.0
+      }
+    },
+    {
+      "ticker": "ABEV3.SA",
+      "nome_amigavel": "Ambev",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 13.0,
+        "preco_maximo": 14.5
+      }
+    },
+    {
+      "ticker": "KLBN11.SA",
+      "nome_amigavel": "Klabin",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 14.5,
+        "preco_maximo": 16.0
+      }
+    },
+    {
+      "ticker": "VALE3.SA",
+      "nome_amigavel": "Vale",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 52.0,
+        "preco_maximo": 56.0
+      }
+    },
+    {
+      "ticker": "PSSA3.SA",
+      "nome_amigavel": "Porto Seguro",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 40.0,
+        "preco_maximo": 44.0
+      }
+    },
+    {
+      "ticker": "BPAC11.SA",
+      "nome_amigavel": "BTG Pactual",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 47.0,
+        "preco_maximo": 51.0
+      }
+    },
+    {
+      "ticker": "RAIL3.SA",
+      "nome_amigavel": "Rumo",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 12.5,
+        "preco_maximo": 14.0
+      }
+    },
+    {
+      "ticker": "RDOR3.SA",
+      "nome_amigavel": "Rede D'Or",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 30.0,
+        "preco_maximo": 33.0
+      }
     }
   ]
 }
