@@ -15,7 +15,17 @@
       "ticker": "HGRU11",
       "nome_amigavel": "Pátria Renda Urbana",
       "preco_ordem": 111.0
-    },    
+    },
+    {
+      "ticker": "PVBI11",
+      "nome_amigavel": "VBI Prime Properties",
+      "preco_ordem": 56.0
+    },
+    {
+      "ticker": "ALZR11",
+      "nome_amigavel": "Alianza Trust Renda Imobiliária",
+      "preco_ordem": 9.4
+    },
     {
       "ticker": "ABEV3",
       "nome_amigavel": "Ambev S.A",
