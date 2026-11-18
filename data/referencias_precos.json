@@ -5,40 +5,6 @@
   "margem_proximidade_pct": 0,
   "ativos": [
     {
-      "ticker": "IVVB11.SA",
-      "nome_amigavel": "S&P 500 ETF",
-      "categoria": "ETFs",
-      "preco_justo": null,
-      "preco_teto": {
-        "metodo": "max_52_semanas",
-        "desconto_pct": 0.05,
-        "maxima_52s": 461.49,
-        "data_cotacao": "2026-10-16",
-        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
-      },
-      "faixa": {
-        "preco_minimo": 440.0,
-        "preco_maximo": 465.0
-      }
-    },
-    {
-      "ticker": "WRLD11.SA",
-      "nome_amigavel": "Global Stocks ETF",
-      "categoria": "ETFs",
-      "preco_justo": null,
-      "preco_teto": {
-        "metodo": "max_52_semanas",
-        "desconto_pct": 0.05,
-        "maxima_52s": 154.02,
-        "data_cotacao": "2026-10-16",
-        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
-      },
-      "faixa": {
-        "preco_minimo": 145.0,
-        "preco_maximo": 153.0
-      }
-    },
-    {
       "ticker": "BBSE3.SA",
       "nome_amigavel": "BB Seguridade",
       "categoria": "Acoes",
@@ -156,17 +122,6 @@
       }
     },
     {
-      "ticker": "B3SA3.SA",
-      "nome_amigavel": "B3",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 19.0,
-        "preco_maximo": 20.5
-      }
-    },
-    {
       "ticker": "CYRE3.SA",
       "nome_amigavel": "Cyrela",
       "categoria": "Acoes",
@@ -175,28 +130,6 @@
       "faixa": {
         "preco_minimo": 16.5,
         "preco_maximo": 18.0
-      }
-    },
-    {
-      "ticker": "CEAB3.SA",
-      "nome_amigavel": "C&A",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 11.0,
-        "preco_maximo": 12.0
-      }
-    },
-    {
-      "ticker": "BBAS3.SA",
-      "nome_amigavel": "Banco do Brasil",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 20.0,
-        "preco_maximo": 22.0
       }
     },
     {
@@ -222,14 +155,124 @@
       }
     },
     {
-      "ticker": "BBDC3.SA",
-      "nome_amigavel": "Bradesco",
+      "ticker": "BBDC4.SA",
+      "nome_amigavel": "Bradesco PN",
       "categoria": "Acoes",
       "preco_justo": null,
       "preco_teto": null,
       "faixa": {
-        "preco_minimo": 11.5,
-        "preco_maximo": 12.3
+        "preco_minimo": 13.0,
+        "preco_maximo": 14.0
+      }
+    },
+    {
+      "ticker": "FLRY3.SA",
+      "nome_amigavel": "Fleury",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 17.0,
+        "preco_maximo": 19.0
+      }
+    },
+    {
+      "ticker": "ABEV3.SA",
+      "nome_amigavel": "Ambev",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 13.0,
+        "preco_maximo": 14.5
+      }
+    },
+    {
+      "ticker": "KLBN11.SA",
+      "nome_amigavel": "Klabin",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 14.5,
+        "preco_maximo": 16.0
+      }
+    },
+    {
+      "ticker": "VALE3.SA",
+      "nome_amigavel": "Vale",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 52.0,
+        "preco_maximo": 56.0
+      }
+    },
+    {
+      "ticker": "PSSA3.SA",
+      "nome_amigavel": "Porto Seguro",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 40.0,
+        "preco_maximo": 44.0
+      }
+    },
+    {
+      "ticker": "BPAC11.SA",
+      "nome_amigavel": "BTG Pactual",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 47.0,
+        "preco_maximo": 51.0
+      }
+    },
+    {
+      "ticker": "RAIL3.SA",
+      "nome_amigavel": "Rumo",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 12.5,
+        "preco_maximo": 14.0
+      }
+    },
+    {
+      "ticker": "RDOR3.SA",
+      "nome_amigavel": "Rede D'Or",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 30.0,
+        "preco_maximo": 33.0
+      }
+    },
+    {
+      "ticker": "TOTS3.SA",
+      "nome_amigavel": "TOTVS",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 22.0,
+        "preco_maximo": 25.0
+      }
+    },
+    {
+      "ticker": "TIMS3.SA",
+      "nome_amigavel": "TIM",
+      "categoria": "Acoes",
+      "preco_justo": null,
+      "preco_teto": null,
+      "faixa": {
+        "preco_minimo": 19.0,
+        "preco_maximo": 22.0
       }
     },
     {
@@ -367,91 +410,37 @@
       }
     },
     {
-      "ticker": "FLRY3.SA",
-      "nome_amigavel": "Fleury",
-      "categoria": "Acoes",
+      "ticker": "IVVB11.SA",
+      "nome_amigavel": "S&P 500 ETF",
+      "categoria": "ETFs",
       "preco_justo": null,
-      "preco_teto": null,
+      "preco_teto": {
+        "metodo": "max_52_semanas",
+        "desconto_pct": 0.05,
+        "maxima_52s": 461.49,
+        "data_cotacao": "2026-10-16",
+        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
+      },
       "faixa": {
-        "preco_minimo": 17.0,
-        "preco_maximo": 19.0
+        "preco_minimo": 440.0,
+        "preco_maximo": 465.0
       }
     },
     {
-      "ticker": "ABEV3.SA",
-      "nome_amigavel": "Ambev",
-      "categoria": "Acoes",
+      "ticker": "WRLD11.SA",
+      "nome_amigavel": "Global Stocks ETF",
+      "categoria": "ETFs",
       "preco_justo": null,
-      "preco_teto": null,
+      "preco_teto": {
+        "metodo": "max_52_semanas",
+        "desconto_pct": 0.05,
+        "maxima_52s": 154.02,
+        "data_cotacao": "2026-10-16",
+        "origem": "Yahoo Finance (fiftyTwoWeekHigh)"
+      },
       "faixa": {
-        "preco_minimo": 13.0,
-        "preco_maximo": 14.5
-      }
-    },
-    {
-      "ticker": "KLBN11.SA",
-      "nome_amigavel": "Klabin",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 14.5,
-        "preco_maximo": 16.0
-      }
-    },
-    {
-      "ticker": "VALE3.SA",
-      "nome_amigavel": "Vale",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 52.0,
-        "preco_maximo": 56.0
-      }
-    },
-    {
-      "ticker": "PSSA3.SA",
-      "nome_amigavel": "Porto Seguro",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 40.0,
-        "preco_maximo": 44.0
-      }
-    },
-    {
-      "ticker": "BPAC11.SA",
-      "nome_amigavel": "BTG Pactual",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 47.0,
-        "preco_maximo": 51.0
-      }
-    },
-    {
-      "ticker": "RAIL3.SA",
-      "nome_amigavel": "Rumo",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 12.5,
-        "preco_maximo": 14.0
-      }
-    },
-    {
-      "ticker": "RDOR3.SA",
-      "nome_amigavel": "Rede D'Or",
-      "categoria": "Acoes",
-      "preco_justo": null,
-      "preco_teto": null,
-      "faixa": {
-        "preco_minimo": 30.0,
-        "preco_maximo": 33.0
+        "preco_minimo": 145.0,
+        "preco_maximo": 153.0
       }
     }
   ]
