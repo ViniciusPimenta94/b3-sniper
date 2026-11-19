@@ -22,11 +22,6 @@
       "preco_ordem": 56.0
     },
     {
-      "ticker": "ALZR11",
-      "nome_amigavel": "Alianza Trust Renda Imobiliária",
-      "preco_ordem": 9.4
-    },
-    {
       "ticker": "ABEV3",
       "nome_amigavel": "Ambev S.A",
       "preco_ordem": 14.0
@@ -44,17 +39,12 @@
     {
       "ticker": "PSSA3",
       "nome_amigavel": "Porto Seguro",
-      "preco_ordem": 42.0
+      "preco_ordem": 44.0
     },
     {
       "ticker": "BBDC4",
       "nome_amigavel": "Bradesco",
       "preco_ordem": 14.0
-    },
-    {
-      "ticker": "KLBN11",
-      "nome_amigavel": "Klabin",
-      "preco_ordem": 17.0
     }
   ]
 }
