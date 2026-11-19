@@ -2,16 +2,6 @@
   "comment": "Ordens de compra na corretora. ticker: código com ou sem o sufixo .SA. preco_ordem: valor limite da ordem.",
   "ordens": [
     {
-      "ticker": "XPLG11",
-      "nome_amigavel": "XP Log",
-      "preco_ordem": 87.0
-    },
-    {
-      "ticker": "VISC11",
-      "nome_amigavel": "Vinci Shopping Centers",
-      "preco_ordem": 95.0
-    },
-    {
       "ticker": "HGRU11",
       "nome_amigavel": "Pátria Renda Urbana",
       "preco_ordem": 111.0
@@ -35,16 +25,6 @@
       "ticker": "TIMS3",
       "nome_amigavel": "TIM",
       "preco_ordem": 18.5
-    },
-    {
-      "ticker": "PSSA3",
-      "nome_amigavel": "Porto Seguro",
-      "preco_ordem": 44.0
-    },
-    {
-      "ticker": "BBDC4",
-      "nome_amigavel": "Bradesco",
-      "preco_ordem": 14.0
     }
   ]
 }
