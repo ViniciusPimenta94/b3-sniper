@@ -1,66 +1,65 @@
-
 {
-  "comment": "Usado somente quando referencias.modo é manual. ticker igual ao de data/referencias_precos.json. preco_justo e preco_teto são números em reais, ou null. Não inclua faixa nem fórmula. Preços justos são estimativas indicativas de valuation, sujeitas a revisão. Preços-teto são limites operacionais conservadores definidos separadamente. Uso exclusivamente informativo para alertas do B3 Sniper; não representam recomendação automática de compra ou venda.",
+  "comment": "Data-base da reavaliação: 23/11/2026. Usado somente quando referencias.modo é manual. ticker igual ao de data/referencias_precos.json. preco_justo e preco_teto são números em reais, ou null. Não inclua faixa nem fórmula. Preços justos são estimativas indicativas de valuation, sujeitas a revisão. Preços-teto são limites operacionais conservadores definidos separadamente. Uso exclusivamente informativo para alertas do B3 Sniper; não representam recomendação automática de compra ou venda.",
   "ativos": [
     {
       "ticker": "ITUB4.SA",
       "nome": "Itaú Unibanco",
-      "preco_justo": 45.5,
-      "preco_teto": 38.00
+      "preco_justo": 47.0,
+      "preco_teto": 42.3
     },
     {
       "ticker": "TAEE11.SA",
       "nome": "Taesa",
-      "preco_justo": 38.00,
-      "preco_teto": 38.00
+      "preco_justo": 42.5,
+      "preco_teto": 38.25
     },
     {
       "ticker": "TOTS3.SA",
       "nome": "TOTVS",
-      "preco_justo": 51.00,
-      "preco_teto": 30.00
+      "preco_justo": 43.0,
+      "preco_teto": 36.55
     },
     {
       "ticker": "WEGE3.SA",
       "nome": "WEG",
-      "preco_justo": 62.50,
-      "preco_teto": 44.00
+      "preco_justo": 50.0,
+      "preco_teto": 42.5
     },
     {
       "ticker": "BBSE3.SA",
       "nome": "BB Seguridade",
-      "preco_justo": 45.30,
-      "preco_teto": 35.00
+      "preco_justo": 41.0,
+      "preco_teto": 36.9
     },
     {
       "ticker": "TIMS3.SA",
       "nome": "TIM Brasil",
-      "preco_justo": 22.00,
-      "preco_teto": 19.00
+      "preco_justo": 25.0,
+      "preco_teto": 21.25
     },
     {
       "ticker": "SBSP3.SA",
       "nome": "Sabesp",
-      "preco_justo": 35.00,
-      "preco_teto": 24.00
+      "preco_justo": 31.0,
+      "preco_teto": 26.35
     },
     {
       "ticker": "CMIG4.SA",
       "nome": "Cemig",
-      "preco_justo": 14.95,
-      "preco_teto": 9.80
+      "preco_justo": 14.0,
+      "preco_teto": 11.9
     },
     {
       "ticker": "CYRE3.SA",
       "nome": "Cyrela",
-      "preco_justo": 30.00,
-      "preco_teto": 17.50
+      "preco_justo": 25.0,
+      "preco_teto": 21.25
     },
     {
       "ticker": "RADL3.SA",
       "nome": "Raia Drogasil",
-      "preco_justo": 25.00,
-      "preco_teto": 14.20
+      "preco_justo": 16.5,
+      "preco_teto": 14.03
     },
     {
       "ticker": "BBDC4.SA",
@@ -71,68 +70,68 @@
     {
       "ticker": "PETR4.SA",
       "nome": "Petrobras PN",
-      "preco_justo": 57.00,
+      "preco_justo": 57.0,
       "preco_teto": 48.45
     },
     {
       "ticker": "KLBN11.SA",
       "nome": "Klabin",
-      "preco_justo": 18.50,
-      "preco_teto": 16.00
+      "preco_justo": 19.0,
+      "preco_teto": 16.15
     },
     {
       "ticker": "PSSA3.SA",
       "nome": "Porto Seguro",
-      "preco_justo": 51.00,
-      "preco_teto": 44.00
+      "preco_justo": 54.0,
+      "preco_teto": 48.6
     },
     {
       "ticker": "PVBI11.SA",
       "nome": "VBI Prime Offices",
-      "preco_justo": 78.60,
-      "preco_teto": 60.00
+      "preco_justo": 80.0,
+      "preco_teto": 68.0
     },
     {
       "ticker": "XPLG11.SA",
       "nome": "XP Logística",
-      "preco_justo": 99.00,
-      "preco_teto": 87.00
+      "preco_justo": 99.0,
+      "preco_teto": 89.1
     },
     {
       "ticker": "VISC11.SA",
       "nome": "Vinci Shopping",
-      "preco_justo": 104.00,
-      "preco_teto": 94.00
+      "preco_justo": 103.0,
+      "preco_teto": 92.7
     },
     {
       "ticker": "BTHF11.SA",
       "nome": "BTG Pactual Hedge Fund",
-      "preco_justo": 8.35,
-      "preco_teto": 7.52
+      "preco_justo": 8.5,
+      "preco_teto": 7.65
     },
     {
       "ticker": "CPTS11.SA",
       "nome": "Capitania Securities II",
-      "preco_justo": 7.60,
-      "preco_teto": 6.80
+      "preco_justo": 7.6,
+      "preco_teto": 6.84
     },
     {
       "ticker": "ALZR11.SA",
       "nome": "Alianza Trust Renda Imobiliária",
-      "preco_justo": 10.2,
-      "preco_teto": 9.18
+      "preco_justo": 10.4,
+      "preco_teto": 9.36
     },
     {
       "ticker": "WRLD11.SA",
       "nome": "Global Stocks ETF",
-      "preco_justo": 150.23,
-      "preco_teto": 150.00
+      "preco_justo": 158.49,
+      "preco_teto": 150.57
     },
     {
       "ticker": "IVVB11.SA",
       "nome": "S&P 500 ETF",
-      "preco_justo": 453.54,
-      "preco_teto": 445.00
+      "preco_justo": 480.61,
+      "preco_teto": 456.58
     }
   ]
 }
