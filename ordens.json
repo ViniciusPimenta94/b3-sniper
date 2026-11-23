@@ -2,29 +2,24 @@
   "comment": "Ordens de compra na corretora. ticker: código com ou sem o sufixo .SA. preco_ordem: valor limite da ordem.",
   "ordens": [
     {
-      "ticker": "HGRU11",
-      "nome_amigavel": "Pátria Renda Urbana",
-      "preco_ordem": 111.0
+      "ticker": "BBDC4",
+      "nome_amigavel": "Bradesco PN",
+      "preco_ordem": 13.0
     },
     {
-      "ticker": "PVBI11",
-      "nome_amigavel": "VBI Prime Properties",
-      "preco_ordem": 56.0
+      "ticker": "BBSE3",
+      "nome_amigavel": "BB Seguridade",
+      "preco_ordem": 34.5
     },
     {
-      "ticker": "ABEV3",
-      "nome_amigavel": "Ambev S.A",
-      "preco_ordem": 14.0
-    },
-    {
-      "ticker": "TOTS3",
-      "nome_amigavel": "Totvs",
-      "preco_ordem": 30.0
+      "ticker": "ITUB4",
+      "nome_amigavel": "Itaú Unibanco PN",
+      "preco_ordem": 39.0
     },
     {
       "ticker": "TIMS3",
       "nome_amigavel": "TIM",
-      "preco_ordem": 18.5
+      "preco_ordem": 18.0
     }
   ]
 }
