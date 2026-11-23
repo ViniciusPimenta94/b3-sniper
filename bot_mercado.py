@@ -752,6 +752,11 @@ def get_schedule_config(
         or {}
     )
 
+def referencias_habilitadas(cfg: dict) -> bool:
+    """Indica se o monitoramento automático de referências está habilitado."""
+    return bool(
+        (cfg.get("referencias") or {}).get("enabled", True)
+    )
 
 def get_trading_hours_config(
     cfg: dict,
@@ -1212,6 +1217,9 @@ def run_price_check(
 ) -> None:
     """Verifica preço justo, preço teto e faixa cadastrados nas referências."""
 
+    if not referencias_habilitadas(cfg):
+        return
+
     if not is_trading_window(cfg):
 
         log.info(
@@ -1509,6 +1517,9 @@ def run_fundamentals_update_reminder(
     """Lembra mensalmente de revisar os fundamentos em data/referencias_precos.json."""
     global _fundamentals_reminder_sent_month
 
+    if not referencias_habilitadas(cfg):
+        return
+
     schedule_config = get_schedule_config(cfg)
     timezone = get_schedule_tz(cfg)
     current = now or datetime.now(timezone)
@@ -1706,16 +1717,14 @@ def main() -> None:
     def job():
 
         try:
+            if referencias_habilitadas(cfg):
+                log.info("🔎 Iniciando verificação de preços...")
 
-            log.info(
-                "🔎 Iniciando verificação de preços..."
-            )
-
-            run_price_check(
-                bot,
-                chat_id,
-                cfg,
-            )
+                run_price_check(
+                    bot,
+                    chat_id,
+                    cfg,
+                )
 
             run_order_check(
                 bot,
@@ -1782,37 +1791,39 @@ def main() -> None:
             e,
         )
 
-    reminder_day = schedule_config.get(
-        "fundamentals_update_reminder_day",
-        1,
-    )
-    reminder_time = (
-        schedule_config.get("fundamentals_update_reminder_time")
-        or eod_time
-    )
-
-    try:
-        schedule.every().day.at(reminder_time).do(
-            lambda: run_fundamentals_update_reminder(
-                bot,
-                chat_id,
-                cfg,
+    if referencias_habilitadas(cfg):
+        reminder_day = schedule_config.get(
+            "fundamentals_update_reminder_day",
+            1,
+        )
+        reminder_time = (
+            schedule_config.get("fundamentals_update_reminder_time")
+            or eod_time
+        )
+    
+        try:
+            schedule.every().day.at(reminder_time).do(
+                lambda: run_fundamentals_update_reminder(
+                    bot,
+                    chat_id,
+                    cfg,
+                )
             )
-        )
-        log.info(
-            "⏰ Lembrete mensal de fundamentos agendado para o dia %s às %s.",
-            reminder_day,
-            reminder_time,
-        )
-        # Recupera o lembrete se o serviço iniciou depois do horário nesse dia.
-        run_fundamentals_update_reminder(bot, chat_id, cfg)
-    except Exception as e:
-        log.exception(
-            "Erro ao agendar lembrete mensal de fundamentos (%s): %s",
-            reminder_time,
-            e,
-        )
-
+            log.info(
+                "⏰ Lembrete mensal de fundamentos agendado para o dia %s às %s.",
+                reminder_day,
+                reminder_time,
+            )
+            # Recupera o lembrete se o serviço iniciou depois do horário nesse dia.
+            run_fundamentals_update_reminder(bot, chat_id, cfg)
+        except Exception as e:
+            log.exception(
+                "Erro ao agendar lembrete mensal de fundamentos (%s): %s",
+                reminder_time,
+                e,
+            )
+    else:
+        log.info("Monitoramento de referências e lembrete mensal desativados.")
     # -----------------------------------------------------------------------
     # COMANDOS TELEGRAM
     # -----------------------------------------------------------------------
